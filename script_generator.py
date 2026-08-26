@@ -86,10 +86,27 @@ def _call_gemini_for_script(client: Any, model_name: str, prompt: str, system_in
     return response.text or ""
 
 
+def load_comment_gaps(gaps_path_or_dict: Any) -> Optional[Dict[str, Any]]:
+    """Load and validate comment gaps from file path or dictionary."""
+    if not gaps_path_or_dict:
+        return None
+    if isinstance(gaps_path_or_dict, dict):
+        return gaps_path_or_dict
+    path = Path(gaps_path_or_dict)
+    if not path.exists():
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
 def generate_script(
     topic: str,
     target_audience: Optional[str] = None,
     style_template_source: Optional[Any] = None,
+    comment_gaps_source: Optional[Any] = None,
     gemini_api_key: Optional[str] = None,
     gemini_model: Optional[str] = None,
 ) -> GeneratedScriptModel:
@@ -98,6 +115,7 @@ def generate_script(
     Injects the style template and strict anti-plagiarism guardrail when provided.
     """
     style_template = load_style_template(style_template_source)
+    comment_gaps = load_comment_gaps(comment_gaps_source)
     api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
@@ -109,6 +127,19 @@ def generate_script(
         "Every script must be 100% original, creative, factually sound, and formatted clearly with "
         "spoken voiceover lines and concrete visual/B-roll instructions."
     )
+
+    gaps_instruction = ""
+    if comment_gaps:
+        gaps_list = comment_gaps.get("content_gaps", [])
+        gaps_text = "\n".join([f"- Gap: {g.get('question_or_critique')} -> Action: {g.get('suggested_script_angle')}" for g in gaps_list])
+        pts_text = "\n".join([f"- {p}" for p in comment_gaps.get("recommended_talking_points", [])])
+        gaps_instruction = f"""
+AUDIENCE CONTENT GAPS (Competitor missed these — ensure our video provides 10x more value by covering them):
+{gaps_text}
+
+Recommended Value Talking Points:
+{pts_text}
+"""
 
     if style_template:
         title_hints = style_template.title_thumbnail_pattern
@@ -141,6 +172,7 @@ STRUCTURAL BLUEPRINT TO MATCH:
 
 TITLE & PACKAGING PATTERN HINTS:
 {title_hint_text}
+{gaps_instruction}
 """
     else:
         template_guidelines = f"""
@@ -397,6 +429,12 @@ def main() -> None:
         default=None,
         help="Path to style_template.json produced by competitor_analyzer.",
     )
+    parser.add_argument(
+        "--comment_gaps",
+        "-g",
+        default=None,
+        help="Path to comment_gaps.json produced by comment_miner.",
+    )
     parser.add_argument("--model", "-m", default=None, help="Gemini model (default: GEMINI_MODEL or gemini-2.5-flash).")
     parser.add_argument("--output", "-o", default=None, help="Custom output JSON path.")
     parser.add_argument("--no-subtitles", action="store_true", help="Disable automatic SRT/VTT subtitle export.")
@@ -407,6 +445,7 @@ def main() -> None:
             topic=args.topic,
             target_audience=args.audience,
             style_template_source=args.style_template,
+            comment_gaps_source=args.comment_gaps,
             gemini_model=args.model,
         )
         out_path = save_script_outputs(script, args.output, export_subtitles=not args.no_subtitles)

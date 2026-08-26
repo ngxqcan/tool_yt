@@ -161,6 +161,7 @@ with tab1:
                     st.markdown("### 💡 Recommended Key Talking Points:")
                     for pt in gap_res.recommended_talking_points:
                         st.info(f"• {pt}")
+                    st.session_state["active_gaps_path"] = str(get_project_root() / "cache" / "competitor" / gap_res.video_id / "comment_gaps.json")
                 except Exception as e:
                     st.error(f"Comment mining failed: {e}")
 
@@ -177,6 +178,7 @@ with tab2:
         audience_input = st.text_input("Target Audience:", "Software developers, tech enthusiasts, and security researchers")
     with colB:
         tmpl_source = st.text_input("Style Template Path (optional):", st.session_state.get("active_template_path", ""))
+        gaps_source = st.text_input("Comment Gaps Path (optional):", st.session_state.get("active_gaps_path", ""))
 
     gen_shorts = st.checkbox("Also generate 3 YouTube Shorts / TikTok scripts (<60s)", value=True)
 
@@ -187,6 +189,7 @@ with tab2:
                     topic=topic_input,
                     target_audience=audience_input,
                     style_template_source=tmpl_source if tmpl_source else None,
+                    comment_gaps_source=gaps_source if gaps_source else None,
                 )
                 saved_json = save_script_outputs(script)
                 st.session_state["current_script"] = script.model_dump()
