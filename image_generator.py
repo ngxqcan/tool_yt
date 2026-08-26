@@ -33,13 +33,13 @@ def sanitize_prompt(prompt: str) -> str:
     return enhanced
 
 
-@retry_with_backoff(max_retries=3, initial_delay=2.0)
+@retry_with_backoff(max_retries=2, initial_delay=1.0)
 def _download_pollinations_image(url: str, output_path: Path) -> Path:
     """Download image from Pollinations AI with retry backoff."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
-    resp = requests.get(url, headers=headers, timeout=25)
+    resp = requests.get(url, headers=headers, timeout=15)
     if resp.status_code != 200:
         raise requests.RequestException(f"Pollinations AI returned HTTP {resp.status_code}")
     
@@ -59,7 +59,7 @@ def generate_offline_fallback_image(
     title_text: Optional[str] = None,
 ) -> Path:
     """Generate a clean dark-themed gradient background with typography when offline."""
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
 
     img = Image.new("RGB", (width, height), color="#0f172a")
     draw = ImageDraw.Draw(img)
@@ -85,7 +85,7 @@ def generate_single_image(
     output_path: Optional[str] = None,
     width: int = 1920,
     height: int = 1080,
-    model: str = "flux",
+    model: str = "turbo",
     seed: Optional[int] = None,
     force_refresh: bool = False,
 ) -> Path:
@@ -107,14 +107,18 @@ def generate_single_image(
 
     encoded_prompt = urllib.parse.quote(clean_p)
     seed_param = f"&seed={seed}" if seed is not None else ""
-    url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model={model}&nologo=true{seed_param}"
 
-    try:
-        LOGGER.info(f"Generating 100% Free AI image ({width}x{height}, model={model})...")
-        return _download_pollinations_image(url, out_file)
-    except Exception as exc:
-        LOGGER.warning(f"Pollinations AI generation failed ({exc}). Using offline fallback image.")
-        return generate_offline_fallback_image(prompt, out_file, width, height)
+    # Try fast turbo model first, then fallback
+    for m in [model, "turbo"]:
+        url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&model={m}&nologo=true{seed_param}"
+        try:
+            LOGGER.info(f"Generating 100% Free AI image ({width}x{height}, model={m})...")
+            return _download_pollinations_image(url, out_file)
+        except Exception as exc:
+            LOGGER.warning(f"Pollinations AI ({m}) failed ({exc}).")
+
+    LOGGER.warning("All online image models failed. Using offline fallback graphic.")
+    return generate_offline_fallback_image(prompt, out_file, width, height)
 
 
 def generate_images_for_script(

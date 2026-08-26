@@ -110,6 +110,10 @@ def retry_with_backoff(
                         LOGGER.error(f"Function {func.__name__} exceeded max retries ({max_retries}). Last error: {exc}")
                         raise
 
+                    if "RESOURCE_EXHAUSTED" in str(exc) or "429" in str(exc) or "Quota exceeded" in str(exc):
+                        LOGGER.warning(f"Google Gemini Free Tier quota reached (429). Fast fallback activated immediately.")
+                        raise exc
+
                     actual_delay = delay + (random.uniform(0, 0.5) if jitter else 0)
                     LOGGER.warning(
                         f"[Retry {retries}/{max_retries}] {func.__name__} failed with {type(exc).__name__}: {exc}. "
