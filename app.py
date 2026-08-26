@@ -1,4 +1,6 @@
-"""Interactive Streamlit Web Dashboard for YouTube AI Production Suite.
+"""Interactive Bilingual Streamlit Web Dashboard for YouTube AI Production Suite.
+
+Supports seamless language switching between Vietnamese (🇻🇳 Tiếng Việt) and English (🇬🇧 English).
 
 Run with:
     streamlit run app.py
@@ -19,6 +21,7 @@ from models import GeneratedScriptModel, StyleTemplateModel
 from script_generator import generate_script, save_script_outputs
 from shorts_generator import generate_shorts_from_topic_or_script, save_shorts_outputs
 from thumbnail_designer import design_thumbnail_prompts, render_thumbnail_mockup
+from translations import get_text
 from tts_generator import VOICES, generate_voiceover
 from utils import ensure_dir, get_project_root, validate_api_keys
 
@@ -35,7 +38,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .main-header {
-        font-size: 2.3rem;
+        font-size: 2.2rem;
         font-weight: 800;
         background: -webkit-linear-gradient(45deg, #FF4B4B, #FF9900);
         -webkit-background-clip: text;
@@ -44,8 +47,8 @@ st.markdown("""
     }
     .sub-header {
         color: #8b949e;
-        font-size: 1.1rem;
-        margin-bottom: 1.5rem;
+        font-size: 1.05rem;
+        margin-bottom: 1.3rem;
     }
     .metric-card {
         background-color: #1e293b;
@@ -53,71 +56,103 @@ st.markdown("""
         padding: 15px;
         border-left: 5px solid #38bdf8;
     }
+    .lang-pill {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# -----------------------------------------------------------------------------
+# LANGUAGE SWITCHER IN SIDEBAR
+# -----------------------------------------------------------------------------
+if "language" not in st.session_state:
+    st.session_state["language"] = "vi"
+
 st.sidebar.markdown("# 🚀 YouTube AI Suite")
+
+# Language Toggle Button / Radio
+lang_choice = st.sidebar.radio(
+    "🌐 Ngôn ngữ / Language:",
+    options=["🇻🇳 Tiếng Việt", "🇬🇧 English"],
+    index=0 if st.session_state["language"] == "vi" else 1,
+    horizontal=True,
+)
+current_lang = "vi" if "Tiếng Việt" in lang_choice else "en"
+st.session_state["language"] = current_lang
+
+
+def t(key: str) -> str:
+    """Helper to get localized text."""
+    return get_text(key, lang=st.session_state["language"])
+
+
 st.sidebar.markdown("---")
 
-# Pre-flight status
+# Pre-flight API Key diagnostics in Sidebar
 diag = validate_api_keys()
-st.sidebar.markdown("### 🔑 API Status")
+st.sidebar.markdown(f"### {t('api_status_header')}")
 if diag["gemini"]["valid"]:
-    st.sidebar.success("Gemini API: Connected ✅")
+    st.sidebar.success(t("gemini_connected"))
 else:
-    st.sidebar.info("Gemini API: Fallback Engine ℹ️")
+    st.sidebar.info(t("gemini_fallback"))
 
 if diag["youtube"]["valid"]:
-    st.sidebar.success("YouTube Data API: Active ✅")
+    st.sidebar.success(t("yt_active"))
 else:
-    st.sidebar.info("YouTube API: oEmbed Mode ℹ️")
+    st.sidebar.info(t("yt_oembed"))
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("💡 **Tip:** Configure your API keys in `.env` for AI features.")
+st.sidebar.markdown(t("tip_env"))
 
-# Main tabs
+# -----------------------------------------------------------------------------
+# MAIN DASHBOARD TABS
+# -----------------------------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "🔍 1. Competitor & Outliers",
-    "✍️ 2. Script & Shorts Studio",
-    "🎙️ 3. Neural Voiceover (TTS)",
-    "🎨 4. Thumbnail Studio",
-    "🎬 5. Video Assembly & Upload",
+    t("tab1_name"),
+    t("tab2_name"),
+    t("tab3_name"),
+    t("tab4_name"),
+    t("tab5_name"),
 ])
 
 # -----------------------------------------------------------------------------
 # TAB 1: Competitor & Outliers
 # -----------------------------------------------------------------------------
 with tab1:
-    st.markdown('<div class="main-header">Competitor Format DNA & Outliers</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Extract structural patterns, identify viral outlier videos, and mine viewer comment gaps.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header">{t("tab1_header")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-header">{t("tab1_sub")}</div>', unsafe_allow_html=True)
 
-    mode = st.radio("Select Analysis Mode:", ["Single Video DNA", "Multi-Competitor Synthesis", "Channel Viral Outliers", "Comment Gap Mining"], horizontal=True)
+    mode_options = [
+        t("mode_single"),
+        t("mode_multi"),
+        t("mode_channel"),
+        t("mode_comments"),
+    ]
+    mode = st.radio(t("mode_select"), mode_options, horizontal=True)
 
-    if mode == "Single Video DNA":
-        vid_url = st.text_input("YouTube Video URL or ID:", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        force_ref = st.checkbox("Bypass Cache (Force Refresh)", value=False)
-        if st.button("🚀 Analyze Structural DNA", type="primary"):
+    if mode == t("mode_single"):
+        vid_url = st.text_input(t("single_url_label"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        force_ref = st.checkbox(t("chk_bypass_cache"), value=False)
+        if st.button(t("btn_analyze_dna"), type="primary"):
             with st.spinner("Extracting metadata, transcript, and Gemini structural patterns..."):
                 try:
                     tmpl_path = analyze_competitor_video(vid_url, force_refresh=force_ref)
                     with open(tmpl_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                    st.success("✅ Style Template Extracted Successfully!")
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.markdown(f"**🎣 Hook Style:** {data.get('hook_style')}")
-                        st.markdown(f"**⚡ Tone:** {data.get('tone')}")
-                        st.markdown(f"**🎯 Title Formula:** `{data.get('title_formula')}`")
-                        st.markdown(f"**⏱️ Section Count:** {data.get('section_count')} beats (~{data.get('avg_section_length_seconds')}s each)")
-                    with col2:
-                        st.json(data)
-                    st.session_state["active_template_path"] = tmpl_path
+                        tmpl_data = json.load(f)
+                    st.success(f"✅ DNA Extracted! Saved to: `{tmpl_path}`")
+                    st.json(tmpl_data)
+                    st.session_state["active_template_path"] = str(tmpl_path)
                 except Exception as e:
                     st.error(f"Analysis failed: {e}")
 
-    elif mode == "Multi-Competitor Synthesis":
-        urls_input = st.text_area("Enter Competitor YouTube URLs (one per line):", "https://www.youtube.com/watch?v=dQw4w9WgXcQ\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        if st.button("🧬 Synthesize Multi-Video Blueprint", type="primary"):
+    elif mode == t("mode_multi"):
+        urls_input = st.text_area(
+            t("multi_urls_label"),
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        )
+        if st.button(t("btn_synthesize"), type="primary"):
             urls = [u.strip() for u in urls_input.splitlines() if u.strip()]
             with st.spinner(f"Analyzing and blending {len(urls)} videos..."):
                 try:
@@ -130,10 +165,10 @@ with tab1:
                 except Exception as e:
                     st.error(f"Synthesis failed: {e}")
 
-    elif mode == "Channel Viral Outliers":
-        channel_input = st.text_input("Enter Channel Handle or URL (@creator):", "@mkbhd")
-        min_score = st.slider("Min Outlier Multiplier (x Channel Average):", 1.5, 5.0, 2.0, 0.5)
-        if st.button("📊 Scan Channel for Outliers", type="primary"):
+    elif mode == t("mode_channel"):
+        channel_input = st.text_input(t("channel_input_label"), "@mkbhd")
+        min_score = st.slider(t("outlier_multiplier_label"), 1.5, 5.0, 2.0, 0.5)
+        if st.button(t("btn_scan_channel"), type="primary"):
             with st.spinner("Scanning channel uploads and calculating view multipliers..."):
                 try:
                     ch_res = crawl_channel_outliers(channel_input, min_outlier_multiplier=min_score)
@@ -148,17 +183,17 @@ with tab1:
                 except Exception as e:
                     st.error(f"Channel crawl failed: {e}")
 
-    elif mode == "Comment Gap Mining":
-        comm_url = st.text_input("YouTube URL for Comment Mining:", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        if st.button("💬 Mine Audience Content Gaps", type="primary"):
+    elif mode == t("mode_comments"):
+        comm_url = st.text_input(t("comm_url_label"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        if st.button(t("btn_mine_comments"), type="primary"):
             with st.spinner("Fetching comments & extracting content gaps..."):
                 try:
                     gap_res = mine_video_comments(comm_url)
                     st.success(f"Analyzed {gap_res.total_comments_analyzed} comments! Sentiment: **{gap_res.audience_sentiment}**")
-                    st.markdown("### 🎯 Unanswered Content Gaps:")
+                    st.markdown(f"### {t('unanswered_gaps_header')}")
                     for gap in gap_res.content_gaps:
                         st.warning(f"**Q/Critique:** {gap.question_or_critique}\n\n👉 **Our Script Angle:** {gap.suggested_script_angle}")
-                    st.markdown("### 💡 Recommended Key Talking Points:")
+                    st.markdown(f"### {t('talking_points_header')}")
                     for pt in gap_res.recommended_talking_points:
                         st.info(f"• {pt}")
                     st.session_state["active_gaps_path"] = str(get_project_root() / "cache" / "competitor" / gap_res.video_id / "comment_gaps.json")
@@ -169,100 +204,96 @@ with tab1:
 # TAB 2: Script & Shorts Studio
 # -----------------------------------------------------------------------------
 with tab2:
-    st.markdown('<div class="main-header">Script & Shorts Studio</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Generate 100% original long-form video scripts & 3 companion viral Shorts.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header">{t("tab2_header")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-header">{t("tab2_sub")}</div>', unsafe_allow_html=True)
 
     colA, colB = st.columns([2, 1])
     with colA:
-        topic_input = st.text_input("Video Topic / Working Title:", "How Quantum Computing Will Break Modern Encryption")
-        audience_input = st.text_input("Target Audience:", "Software developers, tech enthusiasts, and security researchers")
+        default_topic = "Cách Công Nghệ Lượng Tử Phá Vỡ Mã Hóa Hiện Đại" if current_lang == "vi" else "How Quantum Computing Will Break Modern Encryption"
+        default_aud = "Lập trình viên, chuyên gia an ninh mạng và người yêu công nghệ" if current_lang == "vi" else "Software developers, cybersecurity researchers, and tech enthusiasts"
+        topic_input = st.text_input(t("topic_label"), default_topic)
+        audience_input = st.text_input(t("audience_label"), default_aud)
     with colB:
-        tmpl_source = st.text_input("Style Template Path (optional):", st.session_state.get("active_template_path", ""))
-        gaps_source = st.text_input("Comment Gaps Path (optional):", st.session_state.get("active_gaps_path", ""))
+        script_lang = st.selectbox(t("script_lang_label"), ["Tiếng Việt (vi)", "English (en)"], index=0 if current_lang == "vi" else 1)
+        tmpl_source = st.text_input(t("style_tmpl_label"), st.session_state.get("active_template_path", ""))
+        gaps_source = st.text_input(t("gaps_label"), st.session_state.get("active_gaps_path", ""))
 
-    gen_shorts = st.checkbox("Also generate 3 YouTube Shorts / TikTok scripts (<60s)", value=True)
+    gen_shorts = st.checkbox(t("chk_shorts"), value=True)
 
-    if st.button("✨ Generate Original Script Package", type="primary"):
+    if st.button(t("btn_generate_script"), type="primary"):
         with st.spinner("Writing 100% original script with anti-plagiarism guardrails..."):
             try:
+                target_script_lang = "vi" if "Tiếng Việt" in script_lang else "en"
                 script = generate_script(
                     topic=topic_input,
                     target_audience=audience_input,
                     style_template_source=tmpl_source if tmpl_source else None,
                     comment_gaps_source=gaps_source if gaps_source else None,
+                    language=target_script_lang,
                 )
                 saved_json = save_script_outputs(script)
                 st.session_state["current_script"] = script.model_dump()
+                st.session_state["active_script_file"] = str(saved_json)
 
-                st.success("✅ Original Video Script Successfully Generated!")
-                st.markdown(f"### 🎯 Suggested Titles:")
-                for t in script.suggested_titles:
-                    st.markdown(f"- **{t}**")
+                st.success(t("script_created_success"))
+                st.markdown(f"### 🎯 Suggested Titles:\n" + "\n".join([f"- **{t_title}**" for t_title in script.suggested_titles]))
 
-                st.markdown(f"#### 🎣 Hook ({script.hook.duration_seconds}s)")
-                st.info(script.hook.spoken_dialogue)
+                with st.expander(t("hook_header"), expanded=True):
+                    st.markdown(f"**Dialogue:** {script.hook.spoken_dialogue}")
+                    st.info(f"**Visual & B-Roll:** {script.hook.visual_b_roll_instructions}")
 
-                st.markdown("#### 🎬 Main Beats & Sections")
-                for s in script.sections:
-                    with st.expander(f"Beat {s.section_number}: {s.title} (~{s.duration_seconds}s)"):
-                        st.markdown(f"**Spoken Voiceover:**\n> {s.spoken_dialogue}")
-                        st.markdown(f"**Visuals & B-Roll:**\n*{s.visual_b_roll_instructions}*")
+                with st.expander(t("sections_header"), expanded=True):
+                    for idx, sec in enumerate(script.sections, 1):
+                        st.markdown(f"#### Beat {idx}: {sec.title} (~{sec.duration_seconds}s)")
+                        st.markdown(f"**Dialogue:** {sec.spoken_dialogue}")
+                        st.caption(f"**Visual:** {sec.visual_b_roll_instructions}")
 
-                st.markdown(f"#### 📣 CTA & Outro ({script.call_to_action_and_outro.duration_seconds}s)")
-                st.write(script.call_to_action_and_outro.spoken_dialogue)
+                with st.expander(t("outro_header")):
+                    st.markdown(f"**Outro:** {script.call_to_action_and_outro.spoken_dialogue}")
 
-                # Subtitle download
-                srt_path = saved_json.with_suffix(".srt")
-                if srt_path.exists():
-                    with open(srt_path, "r", encoding="utf-8") as s_file:
-                        st.download_button("📥 Download Subtitles (.SRT)", s_file.read(), file_name=srt_path.name, mime="text/plain")
-
-                # Shorts Generation
                 if gen_shorts:
-                    st.markdown("---")
-                    st.markdown("### 📱 Repurposed YouTube Shorts / TikTok Scripts (<60s)")
-                    shorts_coll = generate_shorts_from_topic_or_script(topic_input, script)
-                    save_shorts_outputs(shorts_coll)
-                    for sh in shorts_coll.shorts:
-                        with st.expander(f"📱 Shorts #{sh.shorts_id}: {sh.title} (~{sh.target_duration_seconds}s)"):
-                            st.markdown(f"**Hook (0-3s):** `{sh.hook}`")
-                            for b in sh.beats:
-                                st.markdown(f"- **[{b.on_screen_text}]** {b.spoken_dialogue}")
-                            st.markdown(f"**CTA:** {sh.call_to_action}")
-                            st.markdown(f"**Hashtags:** {' '.join(sh.hashtags)}")
+                    with st.spinner("Deriving 3 viral Shorts scripts..."):
+                        shorts_res = generate_shorts_from_topic_or_script(topic_input, script)
+                        save_shorts_outputs(shorts_res)
+                        st.markdown(f"### {t('shorts_created_header')}")
+                        for s_idx, sh in enumerate(shorts_res.shorts, 1):
+                            with st.expander(f"📱 Short #{s_idx}: {sh.hook_title} ({sh.estimated_duration_seconds}s)"):
+                                st.markdown(f"**Spoken Dialogue:**\n> {sh.spoken_dialogue}")
+                                st.caption(f"**Visual Cues:** {sh.visual_cues}")
 
             except Exception as e:
-                st.error(f"Script generation error: {e}")
+                st.error(f"Script generation failed: {e}")
 
 # -----------------------------------------------------------------------------
-# TAB 3: Neural Voiceover (TTS)
+# TAB 3: Neural Voice Studio
 # -----------------------------------------------------------------------------
 with tab3:
-    st.markdown('<div class="main-header">Neural Voiceover Studio (Edge-TTS)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Free, unlimited, studio-quality neural voiceover generator.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header">{t("tab3_header")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-header">{t("tab3_sub")}</div>', unsafe_allow_html=True)
 
     voice_choice = st.selectbox(
-        "Select Neural Voice:",
-        list(VOICES.keys()),
+        t("voice_label"),
+        options=list(VOICES.keys()),
+        index=0 if current_lang == "vi" else 2,
         format_func=lambda k: f"{k} ({VOICES[k]})",
     )
 
-    default_text = "Chào mừng bạn đến với video hôm nay. Trong bài phân tích này, chúng ta sẽ cùng khám phá công thức tối ưu nhất."
+    default_text = "Chào mừng bạn đến với video hôm nay. Trong bài phân tích này, chúng ta sẽ cùng khám phá công thức tối ưu nhất." if current_lang == "vi" else "Welcome to today's breakdown. In this video, we explore the definitive blueprint."
     if "current_script" in st.session_state:
         cs = st.session_state["current_script"]
         default_text = cs.get("hook", {}).get("spoken_dialogue", default_text)
 
-    text_to_speak = st.text_area("Text to Speak:", default_text, height=180)
-    rate_adj = st.select_slider("Speed Rate Adjustment:", ["-20%", "-10%", "+0%", "+10%", "+20%"], value="+0%")
+    text_to_speak = st.text_area(t("text_to_speak_label"), default_text, height=180)
+    rate_adj = st.select_slider(t("speed_adj_label"), ["-20%", "-10%", "+0%", "+10%", "+20%"], value="+0%")
 
-    if st.button("🎙️ Generate Voiceover Audio", type="primary"):
+    if st.button(t("btn_gen_voice"), type="primary"):
         with st.spinner("Synthesizing neural voiceover with Edge-TTS..."):
             try:
                 audio_file = generate_voiceover(text=text_to_speak, voice=voice_choice, rate=rate_adj)
                 st.success(f"Audio generated: `{audio_file.name}`")
                 st.audio(str(audio_file), format="audio/mp3")
                 with open(audio_file, "rb") as f:
-                    st.download_button("📥 Download MP3 Voiceover", f, file_name=audio_file.name, mime="audio/mp3")
+                    st.download_button(t("btn_dl_audio"), f, file_name=audio_file.name, mime="audio/mp3")
                 st.session_state["last_audio_file"] = str(audio_file)
             except Exception as e:
                 st.error(f"TTS synthesis failed: {e}")
@@ -271,13 +302,14 @@ with tab3:
 # TAB 4: Thumbnail Studio
 # -----------------------------------------------------------------------------
 with tab4:
-    st.markdown('<div class="main-header">AI Thumbnail Designer</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Formulate high-converting Midjourney / DALL-E prompts & render mockup graphics.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header">{t("tab4_header")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-header">{t("tab4_sub")}</div>', unsafe_allow_html=True)
 
-    thumb_topic = st.text_input("Thumbnail Topic / Concept:", "Quantum Computing Breaking Encryption")
-    emotion = st.selectbox("Emotional Trigger:", ["High Shock & Curiosity", "Urgent Warning", "Secret Breakthrough", "Step-by-Step Mastery"])
+    default_thumb_topic = "Quantum Computing Breaking Encryption"
+    thumb_topic = st.text_input(t("thumb_topic_label"), default_thumb_topic)
+    emotion = st.selectbox(t("emotion_label"), ["High Shock & Curiosity", "Urgent Warning", "Secret Breakthrough", "Step-by-Step Mastery"])
 
-    if st.button("🎨 Design Thumbnail Concepts", type="primary"):
+    if st.button(t("btn_design_thumb"), type="primary"):
         with st.spinner("Designing thumbnail prompts..."):
             try:
                 t_model = design_thumbnail_prompts(thumb_topic, target_emotion=emotion)
@@ -293,7 +325,7 @@ with tab4:
                 # Render mockup
                 first_text = t_model.prompts[0].recommended_text_overlay if t_model.prompts else "NEW BREAKTHROUGH"
                 mock_png = render_thumbnail_mockup(text_overlay=first_text, subtitle=thumb_topic)
-                st.image(str(mock_png), caption="Rendered 720p PNG Mockup Card", use_container_width=True)
+                st.image(str(mock_png), caption=t("mockup_caption"), use_container_width=True)
             except Exception as e:
                 st.error(f"Thumbnail design failed: {e}")
 
@@ -301,26 +333,26 @@ with tab4:
 # TAB 5: Video Assembly & Upload
 # -----------------------------------------------------------------------------
 with tab5:
-    st.markdown('<div class="main-header">Automated Video Assembly & Upload</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Composite 100% Free AI Visuals + Voiceover + BGM Audio Ducking + Kinetic Subtitles into a 1080p MP4 video.</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header">{t("tab5_header")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-header">{t("tab5_sub")}</div>', unsafe_allow_html=True)
 
-    v_mode = st.radio("Assembly Mode:", ["Full Multi-Scene Script Video (Recommended)", "Quick Single-Slide Video"], horizontal=True)
+    v_mode = st.radio(t("assembly_mode"), [t("mode_full_script"), t("mode_quick_slide")], horizontal=True)
 
-    if v_mode == "Full Multi-Scene Script Video (Recommended)":
-        st.markdown("#### 🎬 Full Multi-Scene Production")
+    if v_mode == t("mode_full_script"):
+        st.markdown(f"#### 🎬 {t('mode_full_script')}")
         if "current_script" not in st.session_state:
             st.info("💡 Generate a script in **Tab 2** first to enable 1-click full multi-scene assembly.")
-        
-        audio_src = st.text_input("Path to Master Voiceover Audio (.mp3):", st.session_state.get("last_audio_file", ""))
+
+        audio_src = st.text_input(t("audio_path_label"), st.session_state.get("last_audio_file", ""))
         col_bgm1, col_bgm2 = st.columns(2)
         with col_bgm1:
-            bgm_genre = st.selectbox("Background Music Genre (Zero Copyright):", ["lofi", "cinematic", "tech"])
+            bgm_genre = st.selectbox(t("bgm_genre_label"), ["lofi", "cinematic", "tech"])
         with col_bgm2:
-            is_vert = st.checkbox("Vertical Shorts format (1080x1920)", value=False)
-        
-        add_bgm = st.checkbox("Enable Intelligent Audio Ducking & Transition SFX", value=True)
+            is_vert = st.checkbox(t("chk_vertical"), value=False)
 
-        if st.button("🚀 Render Master 1080p Video", type="primary"):
+        add_bgm = st.checkbox(t("chk_ducking"), value=True)
+
+        if st.button(t("btn_render_master"), type="primary"):
             if not audio_src or not Path(audio_src).exists():
                 st.error("Please provide a valid audio file path (or generate one in Tab 3).")
             elif "current_script" not in st.session_state:
@@ -339,16 +371,16 @@ with tab5:
                         st.success(f"✅ 1080p Video Rendered: `{rendered_mp4.name}`")
                         st.video(str(rendered_mp4))
                         with open(rendered_mp4, "rb") as f:
-                            st.download_button("📥 Download 1080p MP4 Video", f, file_name=rendered_mp4.name, mime="video/mp4")
+                            st.download_button(t("btn_dl_video"), f, file_name=rendered_mp4.name, mime="video/mp4")
                         st.session_state["last_video_file"] = str(rendered_mp4)
                     except Exception as e:
                         st.error(f"Video assembly failed: {e}")
 
     else:
-        st.markdown("#### ⚡ Quick Slide Video")
-        audio_src = st.text_input("Path to Voiceover Audio (.mp3):", st.session_state.get("last_audio_file", ""), key="quick_audio")
-        v_title = st.text_input("Video On-Screen Title:", "Quantum Computing 2026")
-        v_sub = st.text_input("Video Tagline:", "The Definitive Breakdown")
+        st.markdown(f"#### ⚡ {t('mode_quick_slide')}")
+        audio_src = st.text_input(t("audio_path_label"), st.session_state.get("last_audio_file", ""), key="quick_audio")
+        v_title = st.text_input("Video Title:", "Quantum Computing 2026")
+        v_sub = st.text_input("Video Subtitle:", "The Definitive Breakdown")
 
         if st.button("🎥 Render Quick Video", type="primary"):
             if not audio_src or not Path(audio_src).exists():
@@ -361,19 +393,19 @@ with tab5:
                         st.success(f"✅ Video Rendered: `{rendered_mp4.name}`")
                         st.video(str(rendered_mp4))
                         with open(rendered_mp4, "rb") as f:
-                            st.download_button("📥 Download 1080p MP4 Video", f, file_name=rendered_mp4.name, mime="video/mp4")
+                            st.download_button(t("btn_dl_video"), f, file_name=rendered_mp4.name, mime="video/mp4")
                         st.session_state["last_video_file"] = str(rendered_mp4)
                     except Exception as e:
                         st.error(f"Quick video assembly failed: {e}")
 
     st.markdown("---")
-    st.markdown("### 📤 Direct YouTube Publishing")
+    st.markdown(f"### {t('yt_upload_header')}")
     upload_file = st.text_input("Video File to Upload:", st.session_state.get("last_video_file", ""))
-    up_title = st.text_input("Upload Title:", "How Quantum Computing Breaks Encryption")
-    up_desc = st.text_area("Upload Description:", "Full breakdown of post-quantum cryptography.")
-    up_privacy = st.selectbox("Privacy Status:", ["private", "unlisted", "public"])
+    up_title = st.text_input(t("upload_title_label"), "How Quantum Computing Breaks Encryption")
+    up_desc = st.text_area(t("upload_desc_label"), "Full breakdown of post-quantum cryptography.")
+    up_privacy = st.selectbox(t("upload_privacy_label"), ["private", "unlisted", "public"])
 
-    if st.button("🚀 Upload Directly to YouTube", type="secondary"):
+    if st.button(t("btn_upload_yt"), type="secondary"):
         if not upload_file or not Path(upload_file).exists():
             st.error("Video file does not exist. Please render a video first.")
         else:

@@ -111,10 +111,11 @@ def generate_script(
     comment_gaps_source: Optional[Any] = None,
     gemini_api_key: Optional[str] = None,
     gemini_model: Optional[str] = None,
+    language: str = "vi",
 ) -> GeneratedScriptModel:
     """Generate an original video script for a topic using Gemini.
 
-    Injects the style template and strict anti-plagiarism guardrail when provided.
+    Injects the style template, comment gaps, language target, and anti-plagiarism guardrail.
     """
     style_template = load_style_template(style_template_source)
     comment_gaps = load_comment_gaps(comment_gaps_source)
@@ -123,12 +124,14 @@ def generate_script(
     model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     audience_str = target_audience or "General interested audience looking for actionable, clear insights"
+    lang_inst = "Write all spoken dialogue, titles, and explanations in fluent, natural Vietnamese (Tiếng Việt)." if language in ["vi", "Tiếng Việt", "Vietnamese"] else "Write all spoken dialogue, titles, and explanations in fluent, engaging English."
 
     system_instruction = (
         "You are an elite YouTube scriptwriter and content strategist. "
         "You produce highly engaging, professional, and retention-optimized video scripts. "
         "Every script must be 100% original, creative, factually sound, and formatted clearly with "
-        "spoken voiceover lines and concrete visual/B-roll instructions."
+        "spoken voiceover lines and concrete visual/B-roll instructions. "
+        f"{lang_inst}"
     )
 
     gaps_instruction = ""

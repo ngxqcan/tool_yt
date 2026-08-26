@@ -307,6 +307,13 @@ class TestMainPipeline(unittest.TestCase):
             self.assertEqual(len(out_files), 1)
             self.assertTrue(out_files[0].exists())
 
+    def test_translations_dictionary(self):
+        from translations import get_text
+        self.assertEqual(get_text("app_title", lang="vi"), "YouTube AI Production Suite 🎬")
+        self.assertEqual(get_text("app_title", lang="en"), "YouTube AI Production Suite 🎬")
+        self.assertIn("100%", get_text("tab2_sub", lang="vi"))
+        self.assertIn("100%", get_text("tab2_sub", lang="en"))
+
 
 if __name__ == "__main__":
     unittest.main()
