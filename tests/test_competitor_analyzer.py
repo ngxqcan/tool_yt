@@ -314,6 +314,17 @@ class TestMainPipeline(unittest.TestCase):
         self.assertIn("100%", get_text("tab2_sub", lang="vi"))
         self.assertIn("100%", get_text("tab2_sub", lang="en"))
 
+    def test_capcut_draft_package_creation(self):
+        from capcut_integrator import create_capcut_draft_package
+        scenes = [
+            {"image_path": "scene1.jpg", "audio_path": "audio1.mp3", "duration": 5.0, "text": "Hello CapCut"},
+            {"image_path": "scene2.jpg", "audio_path": "audio2.mp3", "duration": 6.0, "text": "Second Beat"},
+        ]
+        info = create_capcut_draft_package("test_capcut_proj", scenes, is_vertical=False)
+        self.assertTrue(Path(info["output_draft_dir"]).exists())
+        self.assertTrue((Path(info["output_draft_dir"]) / "draft_content.json").exists())
+        self.assertTrue((Path(info["output_draft_dir"]) / "draft_meta_info.json").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

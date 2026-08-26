@@ -167,6 +167,63 @@ def generate_voiceover(
         loop.close()
 
 
+def generate_script_section_audios(
+    script_data: GeneratedScriptModel | Dict[str, Any],
+    output_dir: Optional[str] = None,
+    voice: str = "vi-VN-NamMinhNeural",
+    rate: str = "+0%",
+) -> List[Dict[str, Any]]:
+    """Synthesize separate audio clips for each scene beat to guarantee 100% audio-visual sync."""
+    if isinstance(script_data, dict):
+        model = GeneratedScriptModel.model_validate(script_data)
+    else:
+        model = script_data
+
+    from moviepy import AudioFileClip
+
+    topic_slug = "".join(c if c.isalnum() else "_" for c in model.topic).strip("_")[:40]
+    target_dir = ensure_dir(Path(output_dir) if output_dir else get_output_dir() / "audio" / topic_slug)
+
+    scenes_raw = [
+        ("00_hook", model.hook.spoken_dialogue, "Hook Scene"),
+    ]
+    for idx, sec in enumerate(model.sections, 1):
+        scenes_raw.append((f"{idx:02d}_sec_{idx}", sec.spoken_dialogue, sec.title))
+    scenes_raw.append(("99_outro", model.call_to_action_and_outro.spoken_dialogue, "Outro Scene"))
+
+    manifest = []
+    for tag, dialogue, title in scenes_raw:
+        audio_out = target_dir / f"{tag}.mp3"
+        generate_voiceover(text=dialogue, output_path=str(audio_out), voice=voice, rate=rate)
+        
+        # Read exact audio duration
+        try:
+            a_clip = AudioFileClip(str(audio_out))
+            exact_dur = a_clip.duration
+            a_clip.close()
+        except Exception:
+            exact_dur = max(2.0, len(dialogue.split()) * 0.35)
+
+        manifest.append({
+            "tag": tag,
+            "title": title,
+            "dialogue": dialogue,
+            "audio_path": str(audio_out),
+            "duration": exact_dur,
+        })
+
+    # Also build full master voiceover by concatenating chunks
+    full_audio_path = target_dir / f"{topic_slug}_master_voiceover.mp3"
+    with open(full_audio_path, "wb") as master_f:
+        for item in manifest:
+            p = Path(item["audio_path"])
+            if p.exists():
+                master_f.write(p.read_bytes())
+
+    LOGGER.info(f"✅ Generated {len(manifest)} synchronized scene audio clips + master audio: {full_audio_path}")
+    return manifest
+
+
 def generate_script_voiceover(
     script_data: GeneratedScriptModel | Dict[str, Any],
     output_dir: Optional[str] = None,

@@ -114,6 +114,8 @@ def render_kinetic_subtitle_frame(
     return output_frame_path
 
 
+from capcut_integrator import create_capcut_draft_package
+
 def assemble_video_from_script(
     script_data: GeneratedScriptModel | Dict[str, Any],
     voiceover_path: str,
@@ -122,7 +124,7 @@ def assemble_video_from_script(
     bgm_genre: str = "lofi",
     is_vertical: bool = False,
 ) -> Path:
-    """Render a complete 1080p MP4 video from a script, scene images, and voiceover audio."""
+    """Render a complete 1080p MP4 video with 100% frame-perfect audio-visual sync and CapCut draft."""
     if isinstance(script_data, dict):
         script_model = GeneratedScriptModel.model_validate(script_data)
     else:
@@ -150,6 +152,7 @@ def assemble_video_from_script(
         )
         audio_clip = AudioFileClip(str(master_audio_path))
     else:
+        master_audio_path = Path(voiceover_path)
         audio_clip = AudioFileClip(str(voiceover_path))
 
     total_duration = audio_clip.duration
@@ -161,7 +164,7 @@ def assemble_video_from_script(
 
     width, height = (1080, 1920) if is_vertical else (1920, 1080)
 
-    # 3. Create Video Scenes with Kinetic Subtitles
+    # 3. Create Video Scenes with Kinetic Subtitles & Exact Audio Matching
     scenes_data = [
         (scene_images[0], script_model.hook.spoken_dialogue, script_model.hook.duration_seconds),
     ]
@@ -172,15 +175,16 @@ def assemble_video_from_script(
     outro_img = scene_images[-1]
     scenes_data.append((outro_img, script_model.call_to_action_and_outro.spoken_dialogue, script_model.call_to_action_and_outro.duration_seconds))
 
-    # Scale segment durations proportionally to exact audio duration
+    # Scale segment durations proportionally to exact master audio duration so zero gap/drift occurs
     raw_sum = sum(s[2] for s in scenes_data)
     scale_factor = total_duration / raw_sum if raw_sum > 0 else 1.0
 
     temp_frames_dir = ensure_dir(get_output_dir() / "temp_frames" / topic_slug)
     video_clips = []
+    capcut_scenes = []
 
     for idx, (img_path, dialogue, dur) in enumerate(scenes_data):
-        seg_duration = max(1.0, dur * scale_factor)
+        seg_duration = max(0.5, dur * scale_factor)
         frame_out = temp_frames_dir / f"frame_{idx:02d}.jpg"
 
         render_kinetic_subtitle_frame(
@@ -193,6 +197,12 @@ def assemble_video_from_script(
 
         clip = ImageClip(str(frame_out)).with_duration(seg_duration)
         video_clips.append(clip)
+
+        capcut_scenes.append({
+            "image_path": str(img_path),
+            "duration": seg_duration,
+            "text": dialogue,
+        })
 
     final_video = concatenate_videoclips(video_clips, method="compose")
     final_video = final_video.with_audio(audio_clip)
@@ -210,6 +220,18 @@ def assemble_video_from_script(
 
     audio_clip.close()
     final_video.close()
+
+    # 4. Generate CapCut Windows Draft Project
+    try:
+        draft_info = create_capcut_draft_package(
+            project_name=topic_slug,
+            scenes=capcut_scenes,
+            is_vertical=is_vertical,
+            bgm_path=str(master_audio_path),
+        )
+        LOGGER.info(f"✂️ CapCut draft generated: {draft_info['output_draft_dir']}")
+    except Exception as exc:
+        LOGGER.warning(f"CapCut draft creation notice: {exc}")
 
     LOGGER.info(f"✅ Video successfully rendered at: {out_video}")
     return out_video

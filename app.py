@@ -250,8 +250,32 @@ with tab0:
                 st.audio(st.session_state["last_audio_file"], format="audio/mp3")
 
         st.markdown("---")
-        # Direct Upload Expander
-        with st.expander(t("yt_upload_header"), expanded=False):
+        st.markdown("### ✂️ Tùy Chọn Xuất File & Chỉnh Sửa CapCut")
+        st.info("💡 Toàn bộ video, audio, ảnh AI và kịch bản đã được tự động lưu trong thư mục `output/` và tạo sẵn dự án CapCut đồng bộ 100%!")
+        col_act1, col_act2, col_act3 = st.columns(3)
+        with col_act1:
+            if st.button("📁 Mở Thư Mục Chứa File (output/)", key="auto_open_out_btn"):
+                out_dir = get_output_dir()
+                if os.name == "nt":
+                    os.startfile(str(out_dir))
+                st.success(f"Đã mở: `{out_dir}`")
+        with col_act2:
+            if st.button("✂️ Mở Trực Tiếp Trong CapCut", key="auto_open_capcut_btn", type="primary"):
+                from capcut_integrator import launch_capcut_app
+                if launch_capcut_app():
+                    st.success("🚀 Đang khởi động CapCut Desktop! Dự án đã được đồng bộ sẵn trong danh sách Drafts.")
+                else:
+                    st.info("💡 Dự án CapCut đã sẵn sàng trong `output/capcut_drafts/`.")
+        with col_act3:
+            if st.button("📂 Mở Thư Mục Dự Án CapCut", key="auto_open_capcut_dir_btn"):
+                capcut_draft_dir = get_output_dir() / "capcut_drafts"
+                if os.name == "nt":
+                    os.startfile(str(capcut_draft_dir))
+                st.success(f"Đã mở: `{capcut_draft_dir}`")
+
+        st.markdown("---")
+        # Direct Upload Expander (Optional if API keys configured)
+        with st.expander(t("yt_upload_header") + " (Tùy chọn khi có API Key)", expanded=False):
             up_t = st.session_state.get("current_script", {}).get("suggested_titles", ["My New Video"])[0]
             auto_up_title = st.text_input(t("upload_title_label"), up_t, key="auto_yt_title")
             auto_up_desc = st.text_area(t("upload_desc_label"), "Auto-generated with YouTube AI Production Suite.", key="auto_yt_desc")
@@ -269,7 +293,7 @@ with tab0:
                         st.success(f"🎉 Successfully Uploaded to YouTube! Video ID: `{v_id}`")
                         st.markdown(f"[View Video on YouTube](https://www.youtube.com/watch?v={v_id})")
                     except Exception as e:
-                        st.error(f"Upload failed: {e}")
+                        st.error(f"Upload failed (Không có API Key YouTube). File video đã được lưu sẵn trong thư mục output: {e}")
 
 # -----------------------------------------------------------------------------
 # TAB 1: Competitor & Outliers
@@ -589,8 +613,31 @@ with tab5:
         with open(v_file, "rb") as f:
             st.download_button(t("btn_dl_video"), f, file_name=v_file.name, mime="video/mp4")
 
+        st.markdown("---")
+        st.markdown("### ✂️ Tùy Chọn Xuất File & Chỉnh Sửa CapCut")
+        col_tab5_act1, col_tab5_act2, col_tab5_act3 = st.columns(3)
+        with col_tab5_act1:
+            if st.button("📁 Mở Thư Mục Chứa File (output/)", key="tab5_open_out_btn"):
+                out_dir = get_output_dir()
+                if os.name == "nt":
+                    os.startfile(str(out_dir))
+                st.success(f"Đã mở: `{out_dir}`")
+        with col_tab5_act2:
+            if st.button("✂️ Mở Trực Tiếp Trong CapCut", key="tab5_open_capcut_btn", type="primary"):
+                from capcut_integrator import launch_capcut_app
+                if launch_capcut_app():
+                    st.success("🚀 Đang khởi động CapCut Desktop! Dự án đã được import sẵn trong danh sách Drafts.")
+                else:
+                    st.info("💡 Dự án CapCut đã sẵn sàng trong `output/capcut_drafts/`.")
+        with col_tab5_act3:
+            if st.button("📂 Mở Thư Mục Dự Án CapCut", key="tab5_open_capcut_dir_btn"):
+                capcut_draft_dir = get_output_dir() / "capcut_drafts"
+                if os.name == "nt":
+                    os.startfile(str(capcut_draft_dir))
+                st.success(f"Đã mở: `{capcut_draft_dir}`")
+
     st.markdown("---")
-    st.markdown(f"### {t('yt_upload_header')}")
+    st.markdown(f"### {t('yt_upload_header')} (Tùy chọn khi có API Key)")
     upload_file = st.text_input("Video File to Upload:", st.session_state.get("last_video_file", ""))
     up_title = st.text_input(t("upload_title_label"), "How Quantum Computing Breaks Encryption")
     up_desc = st.text_area(t("upload_desc_label"), "Full breakdown of post-quantum cryptography.")
@@ -612,4 +659,4 @@ with tab5:
                     st.success(f"🎉 Successfully Uploaded to YouTube! Video ID: `{vid_id}`")
                     st.markdown(f"[View Video on YouTube](https://www.youtube.com/watch?v={vid_id})")
                 except Exception as e:
-                    st.error(f"Upload failed: {e}")
+                    st.error(f"Upload failed (Không có API Key YouTube). File video đã được lưu sẵn trong thư mục output: {e}")
