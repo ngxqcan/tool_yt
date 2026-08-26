@@ -1,0 +1,31 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C Army / OS
+.DS_Store
+Thumbs.db
+
+# Environment & Credentials
+.env
+.env.local
+*.env
+
+# Cache & Runtime Data
+cache/
+logs/
+output/
+.temp/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
