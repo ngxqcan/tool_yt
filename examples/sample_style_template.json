@@ -1,0 +1,32 @@
+{
+  "hook_style": "High-impact opening dilemma posing the central roadblock within 15 seconds.",
+  "section_count": 4,
+  "section_pacing": [
+    "Beat 1: Context & Core Roadblock (~70s)",
+    "Beat 2: The Breakthrough Mechanism & Architecture (~90s)",
+    "Beat 3: Step-by-Step Implementation & Pitfalls (~90s)",
+    "Beat 4: Actionable Checklist & Next Steps (~60s)"
+  ],
+  "tone": "Authoritative, educational, and engaging with concise explanations.",
+  "title_formula": "Why [Topic] Is Changing Everything in 2026 (And What to Do)",
+  "avg_section_length_seconds": 80,
+  "ending_style": "Key takeaway summary followed by a targeted community question CTA.",
+  "estimated_total_length_seconds": 320,
+  "title_thumbnail_pattern": {
+    "title_length_chars": 58,
+    "title_word_count": 10,
+    "capitalization_style": "Title Case",
+    "has_numbers": true,
+    "has_brackets": true,
+    "has_emojis": false,
+    "tag_themes": [
+      "ai",
+      "architecture",
+      "tech",
+      "tutorial"
+    ]
+  },
+  "source_video_id": "sample_video_id",
+  "generated_at": "2026-08-26T19:30:00.000000+00:00",
+  "guardrail_compliance": "Strict format DNA only. No verbatim competitor dialogue or proprietary content."
+}

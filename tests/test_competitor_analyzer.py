@@ -169,6 +169,29 @@ class TestIntelligenceModules(unittest.TestCase):
         self.assertTrue(len(res.prompts) > 0)
         self.assertIn("midjourney_prompt", res.prompts[0].model_dump())
 
+    def test_thumbnail_vision_analysis_fallback(self):
+        from thumbnail_analyzer import analyze_thumbnail_with_gemini_vision
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
+            tmp_jpg = Path(f.name)
+        try:
+            from PIL import Image
+            img = Image.new("RGB", (100, 100), color="blue")
+            img.save(str(tmp_jpg))
+
+            res = analyze_thumbnail_with_gemini_vision("test_vid_vision", tmp_jpg, "http://example.com/thumb.jpg")
+            self.assertEqual(res.video_id, "test_vid_vision")
+            self.assertTrue(res.has_face)
+            self.assertTrue(len(res.ctr_strengths) > 0)
+        finally:
+            if tmp_jpg.exists():
+                os.remove(tmp_jpg)
+
+    def test_batch_checkpoint_saving_and_loading(self):
+        from main import load_batch_checkpoint, save_batch_checkpoint
+        save_batch_checkpoint("Test Topic Checkpoint 1")
+        chk = load_batch_checkpoint()
+        self.assertIn("Test Topic Checkpoint 1", chk.get("completed_topics", []))
+
     def test_render_thumbnail_mockup(self):
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
             tmp_png = f.name

@@ -3,9 +3,10 @@
 [![CI Test Suite](https://github.com/ngxqcan/tool_yt/actions/workflows/test.yml/badge.svg)](https://github.com/ngxqcan/tool_yt/actions/workflows/test.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Pydantic v2](https://img.shields.io/badge/pydantic-v2-green.svg)](https://docs.pydantic.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit App](https://img.shields.io/badge/Streamlit-Web_UI-FF4B4B.svg)](https://streamlit.io/)
 
-An end-to-end automated YouTube content powerhouse. From competitor format DNA extraction and viral outlier discovery to original scriptwriting, Shorts repurposing, Edge-TTS studio voiceovers, AI thumbnail design, and automated 1080p video assembly.
+An end-to-end automated YouTube content powerhouse. From competitor format DNA extraction and viral outlier discovery to original scriptwriting, Shorts repurposing, Edge-TTS studio voiceovers, AI thumbnail vision analysis, and automated 1080p video assembly.
 
 ---
 
@@ -19,15 +20,16 @@ An end-to-end automated YouTube content powerhouse. From competitor format DNA e
     ┌──────────────────┬──────────────┼──────────────┬──────────────────┐
     ▼                  ▼              ▼              ▼                  ▼
 [1. Intelligence]  [2. Scripting] [3. Voiceover]  [4. Visuals]    [5. Assembly]
-- Channel Outliers - Long-form    - Edge-TTS      - Midjourney    - 1080p MP4
-- Comment Gaps     - 3x Shorts    - Multi-voice   - DALL-E 3      - Subtitles
+- Channel Outliers - Long-form    - Edge-TTS      - Vision Eye    - 1080p MP4
+- Comment Gaps     - 3x Shorts    - Multi-voice   - Midjourney    - Subtitles
 - Format DNA       - Subtitles    - Vi & En       - PIL Mockups   - Auto-Upload
 ```
 
 ### 1. Pre-Production Intelligence
 - **Channel Outlier Detector (`channel_crawler.py`)**: Scrapes competitor channels, calculates channel view baselines, and flags viral Outliers ($3x - 10x+$ view spikes).
-- **Comment Gap Miner (`comment_miner.py`)**: Mines top viewer comments to identify unanswered questions and content gaps.
+- **Comment Gap Miner (`comment_miner.py`)**: Mines top viewer comments to identify unanswered questions and content gaps to feed into the script prompt.
 - **Competitor DNA Analyzer (`competitor_analyzer.py`)**: Extracts pacing, hook mechanisms, beat cadence, tone, and title formulas. Supports multi-competitor synthesis (`--urls`).
+- **Gemini Vision Thumbnail Analyzer (`thumbnail_analyzer.py`)**: Downloads actual thumbnail images and performs multimodal computer vision analysis on facial expressions, color contrast, and visual hierarchy.
 
 ### 2. Scriptwriting & Growth Repurposing
 - **Original Script Generator (`script_generator.py`)**: Generates 100% original scripts with visual B-roll cues, timestamps, and SEO blueprints.
@@ -88,9 +90,14 @@ python main.py --validate-keys
 
 ## 🛠️ CLI Quick Reference
 
-### Full End-to-End Batch Pipeline (Scripts + TTS + Shorts + Thumbnails):
+### Full Batch Pipeline with Progress Bar & Checkpoint Resume:
 ```bash
-python main.py --topics topics.csv --generate-tts --generate-shorts --design-thumbnails
+python main.py --topics topics.csv --resume --generate-tts --generate-shorts --design-thumbnails
+```
+
+### Analyze Actual Thumbnail Image with Gemini Vision:
+```bash
+python main.py --analyze-thumbnail "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 ```
 
 ### Scan Channel for Viral Outliers:
@@ -120,13 +127,33 @@ python video_assembler.py --audio output/voice.mp3 --title "AI Breakthrough" --s
 
 ---
 
-## 🧪 Running Tests
+## 📂 Sample Outputs & Examples
 
-```bash
-python -m unittest discover -s tests -p "test_*.py"
-```
+Explore full production examples in the [`examples/`](./examples) directory:
+- [Sample Style Template JSON](./examples/sample_style_template.json)
+- [Sample Generated Script Markdown](./examples/sample_script.md)
+- [Sample Timed Subtitles (.SRT)](./examples/sample_subtitles.srt)
+- [Sample Thumbnail Vision Analysis](./examples/sample_thumbnail_vision.json)
+
+---
+
+## ⚠️ Limitations & Edge Cases
+
+1. **Captions / Transcript Availability**:
+   If a competitor video has disabled captions or contains no speech, the analyzer will automatically log a warning and fall back to metadata-only format heuristics.
+2. **Quota & Rate Limits**:
+   Batch runs utilize an exponential backoff retry handler (`@retry_with_backoff`) and a default rate limiter (`--rate-limit-delay 2.0s`). For large batches (100+ topics), use `--resume` to ensure interrupted runs resume without losing progress.
+3. **Thumbnail Image Resolutions**:
+   YouTube provides `maxresdefault.jpg` only for videos uploaded in 720p or higher. For older/lower resolution videos, the system automatically falls back to `hqdefault.jpg`.
+4. **Guardrail Integrity**:
+   The prompt architecture strictly instructs Gemini to analyze abstract structure only. It is recommended to perform domain-specific fact-checking for specialized technical topics.
 
 ---
 
 ## 🔒 Guardrail & Ethical Policy
 This toolkit is strictly a **format & strategy analyzer**. It extracts meta-patterns only and never reproduces or quotes competitor scripts, dialogue, or footage. All generated scripts are 100% original.
+
+---
+
+## 📄 License
+Released under the [MIT License](LICENSE).

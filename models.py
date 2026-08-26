@@ -237,6 +237,21 @@ class ThumbnailDesignModel(BaseModel):
     prompts: List[ThumbnailPromptVariationModel] = Field(default_factory=list)
 
 
+class ThumbnailVisionAnalysisModel(BaseModel):
+    video_id: str
+    thumbnail_url: str
+    has_face: bool = False
+    facial_expression: str = "N/A"
+    dominant_colors: List[str] = Field(default_factory=list)
+    contrast_ratio_assessment: str = "High contrast"
+    text_overlay_detected: bool = False
+    detected_text: str = ""
+    visual_hierarchy_style: str = "Center focus with dramatic rim light"
+    composition_rules: List[str] = Field(default_factory=list)
+    ctr_strengths: List[str] = Field(default_factory=list)
+    key_takeaways_for_designer: List[str] = Field(default_factory=list)
+
+
 # -----------------------------------------------------------------------------
 # Community Post & Newsletter Models
 # -----------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 Orchestrates batch topic processing, outlier detection, comment gap mining,
 neural voiceover synthesis, shorts repurposing, and automated video assembly.
+Includes batch checkpointing (--resume), interactive progress bars, and verbose logging.
 
 CLI Examples:
 1. Launch Streamlit Interactive Web App:
@@ -10,27 +11,31 @@ CLI Examples:
 2. Validate API keys:
    python main.py --validate-keys
 
-3. Full automated pipeline for topics CSV:
-   python main.py --topics topics.csv --generate-tts --generate-shorts --design-thumbnails
+3. Full automated pipeline with resume support:
+   python main.py --topics topics.csv --resume --generate-tts --generate-shorts --design-thumbnails
 
-4. Crawl channel for viral outliers:
-   python main.py --channel "@mkbhd" --min-outlier-score 2.5
+4. Analyze video thumbnail with Gemini Vision:
+   python main.py --analyze-thumbnail "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 """
 
 from __future__ import annotations
 
 import argparse
 import csv
+import json
+import logging
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from tqdm import tqdm
 
 from channel_crawler import crawl_channel_outliers
 from comment_miner import mine_video_comments
 from competitor_analyzer import analyze_competitor_video, analyze_multiple_competitors
 from script_generator import generate_script, save_script_outputs
 from shorts_generator import generate_shorts_from_topic_or_script, save_shorts_outputs
+from thumbnail_analyzer import analyze_video_thumbnail
 from thumbnail_designer import design_thumbnail_prompts, render_thumbnail_mockup
 from tts_generator import generate_script_voiceover
 from utils import RateLimiter, ensure_dir, get_project_root, setup_logging, validate_api_keys
@@ -76,6 +81,28 @@ def parse_topics_csv(csv_path: str) -> List[Dict[str, str]]:
     return topics
 
 
+def load_batch_checkpoint() -> Dict[str, Any]:
+    """Load previously completed topics from cache/batch_state.json."""
+    state_file = get_project_root() / "cache" / "batch_state.json"
+    if state_file.exists():
+        try:
+            with open(state_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {"completed_topics": []}
+    return {"completed_topics": []}
+
+
+def save_batch_checkpoint(completed_topic: str) -> None:
+    """Record completed topic in cache/batch_state.json."""
+    state_file = ensure_dir(get_project_root() / "cache") / "batch_state.json"
+    state = load_batch_checkpoint()
+    if completed_topic not in state["completed_topics"]:
+        state["completed_topics"].append(completed_topic)
+    with open(state_file, "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=2)
+
+
 def run_pipeline(
     topics_path: str,
     style_template_path: Optional[str] = None,
@@ -90,6 +117,7 @@ def run_pipeline(
     design_thumbnails: bool = False,
     force_refresh: bool = False,
     tts_voice: str = "vi-male",
+    resume: bool = False,
 ) -> List[Path]:
     """Execute the end-to-end video production pipeline."""
     active_style_template = style_template_path
@@ -126,16 +154,27 @@ def run_pipeline(
         LOGGER.warning("No topics found in CSV file.")
         return []
 
+    # Checkpoint resume support
+    completed_topics = set()
+    if resume:
+        chk = load_batch_checkpoint()
+        completed_topics = set(chk.get("completed_topics", []))
+        if completed_topics:
+            LOGGER.info(f"[RESUME ACTIVE] Found {len(completed_topics)} already completed topic(s). Skipping...")
+
     limiter = RateLimiter(min_interval_seconds=rate_limit_delay)
     generated_files: List[Path] = []
 
-    for idx, item in enumerate(topics, 1):
+    progress_bar = tqdm(topics, desc="Processing Topics", unit="topic", dynamic_ncols=True)
+    for item in progress_bar:
         topic_title = item["topic"]
         audience = item.get("audience")
-        LOGGER.info(f"\n=======================================================")
-        LOGGER.info(f"[{idx}/{len(topics)}] Processing Topic: '{topic_title}'")
-        LOGGER.info(f"=======================================================")
 
+        if resume and topic_title in completed_topics:
+            progress_bar.set_postfix_str(f"Skipping: {topic_title[:20]}...")
+            continue
+
+        progress_bar.set_postfix_str(f"Generating: {topic_title[:20]}...")
         limiter.wait()
 
         # 1. Generate Main Script
@@ -160,24 +199,21 @@ def run_pipeline(
 
         # 2. TTS Voiceover Generation
         if generate_tts:
-            LOGGER.info(f"Generating studio neural voiceover ({tts_voice})...")
             try:
                 generate_script_voiceover(script_model, voice=tts_voice)
             except Exception as exc:
-                LOGGER.warning(f"Voiceover generation failed ({exc})")
+                LOGGER.warning(f"Voiceover generation failed for '{topic_title}': {exc}")
 
         # 3. Shorts & Reels Repurposing
         if generate_shorts:
-            LOGGER.info("Generating 3 companion vertical Shorts scripts...")
             try:
                 shorts = generate_shorts_from_topic_or_script(topic_title, script_model, gemini_model=model_name)
                 save_shorts_outputs(shorts)
             except Exception as exc:
-                LOGGER.warning(f"Shorts generation failed ({exc})")
+                LOGGER.warning(f"Shorts generation failed for '{topic_title}': {exc}")
 
         # 4. Thumbnail Prompts & Mockup Card
         if design_thumbnails:
-            LOGGER.info("Generating AI thumbnail prompts & mockup graphic...")
             try:
                 t_model = design_thumbnail_prompts(topic_title, gemini_model=model_name)
                 if t_model.prompts:
@@ -186,7 +222,10 @@ def run_pipeline(
                     mock_out = ensure_dir(get_project_root() / "output" / "thumbnails") / f"mockup_{topic_slug}.png"
                     render_thumbnail_mockup(text_overlay=mock_text, subtitle=topic_title, output_path=str(mock_out))
             except Exception as exc:
-                LOGGER.warning(f"Thumbnail design failed ({exc})")
+                LOGGER.warning(f"Thumbnail design failed for '{topic_title}': {exc}")
+
+        # Save checkpoint
+        save_batch_checkpoint(topic_title)
 
     LOGGER.info(f"\nPipeline successfully completed! Generated {len(generated_files)} script package(s).")
     return generated_files
@@ -213,6 +252,7 @@ def main() -> None:
     parser.add_argument("--competitor_urls", default=None, help="Comma-separated list of competitor URLs.")
     parser.add_argument("--channel", default=None, help="Crawl channel for viral outlier videos (@handle or ID).")
     parser.add_argument("--mine-comments", default=None, help="Mine viewer comment gaps for a video URL.")
+    parser.add_argument("--analyze-thumbnail", default=None, help="Download and analyze actual video thumbnail via Gemini Vision.")
     parser.add_argument("--output_dir", "-o", default=None, help="Directory to save generated scripts.")
     parser.add_argument("--model", "-m", default=None, help="Gemini model name.")
     parser.add_argument("--rate-limit-delay", type=float, default=2.0, help="Delay between API calls in seconds.")
@@ -222,8 +262,14 @@ def main() -> None:
     parser.add_argument("--generate-shorts", action="store_true", help="Automatically generate 3 viral Shorts scripts.")
     parser.add_argument("--design-thumbnails", action="store_true", help="Generate AI thumbnail prompts and mockup.")
     parser.add_argument("--force-refresh", action="store_true", help="Bypass cache for analysis.")
+    parser.add_argument("--resume", action="store_true", help="Resume interrupted batch run from checkpoint state.")
     parser.add_argument("--validate-keys", action="store_true", help="Run pre-flight API diagnostics.")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose debug logging.")
     args = parser.parse_args()
+
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        LOGGER.setLevel(logging.DEBUG)
 
     # GUI Mode
     if args.gui:
@@ -238,8 +284,13 @@ def main() -> None:
         print(f"Gemini API:   [{'OK' if diag['gemini']['valid'] else 'INFO'}] {diag['gemini']['message']}")
         print(f"YouTube API:  [{'OK' if diag['youtube']['valid'] else 'INFO'}] {diag['youtube']['message']}")
         print("----------------------------------\n")
-        if not args.channel and not args.mine_comments and not args.competitor_url:
+        if not args.channel and not args.mine_comments and not args.competitor_url and not args.analyze_thumbnail:
             return
+
+    # Visual Thumbnail Vision Mode
+    if args.analyze_thumbnail:
+        analyze_video_thumbnail(args.analyze_thumbnail, force_refresh=args.force_refresh)
+        return
 
     # Channel Outliers Mode
     if args.channel:
@@ -270,6 +321,7 @@ def main() -> None:
             design_thumbnails=args.design_thumbnails,
             force_refresh=args.force_refresh,
             tts_voice=args.voice,
+            resume=args.resume,
         )
     except Exception as exc:
         LOGGER.error(f"Pipeline execution error: {exc}")

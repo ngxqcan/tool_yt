@@ -1,0 +1,29 @@
+{
+  "video_id": "dQw4w9WgXcQ",
+  "thumbnail_url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+  "has_face": true,
+  "facial_expression": "Intense curiosity / Shock with direct camera eye contact",
+  "dominant_colors": [
+    "#FFCC00 (Electric Yellow)",
+    "#0D1117 (Dark Obsidian)",
+    "#FF0033 (Neon Red)"
+  ],
+  "contrast_ratio_assessment": "Extreme high-contrast foreground on dark cinematic background",
+  "text_overlay_detected": true,
+  "detected_text": "DON'T DO THIS",
+  "visual_hierarchy_style": "Strong left-to-right visual flow: expressive subject on left, glowing focal object on right",
+  "composition_rules": [
+    "Rule of thirds alignment",
+    "Volumetric rim lighting separating subject from background"
+  ],
+  "ctr_strengths": [
+    "High emotional charge",
+    "Under 4 words of text overlay",
+    "Clear curiosity gap"
+  ],
+  "key_takeaways_for_designer": [
+    "Keep text overlay to 2-3 high-impact words max",
+    "Use warm accent color (#FFCC00) against a dark backdrop for 10x visibility in mobile feed",
+    "Ensure eye line of subject points directly toward the curiosity element"
+  ]
+}
