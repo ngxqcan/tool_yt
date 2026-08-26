@@ -115,6 +115,10 @@ def run_pipeline(
     generate_tts: bool = False,
     generate_shorts: bool = False,
     design_thumbnails: bool = False,
+    generate_ai_images: bool = False,
+    assemble_video: bool = False,
+    add_bgm: bool = True,
+    bgm_genre: str = "lofi",
     force_refresh: bool = False,
     tts_voice: str = "vi-male",
     resume: bool = False,
@@ -197,14 +201,36 @@ def run_pipeline(
         )
         generated_files.append(saved_path)
 
+        voice_path = None
         # 2. TTS Voiceover Generation
-        if generate_tts:
+        if generate_tts or assemble_video:
             try:
-                generate_script_voiceover(script_model, voice=tts_voice)
+                voice_path = generate_script_voiceover(script_model, voice=tts_voice)
             except Exception as exc:
                 LOGGER.warning(f"Voiceover generation failed for '{topic_title}': {exc}")
 
-        # 3. Shorts & Reels Repurposing
+        # 3. 100% Free AI Scene Visuals
+        if generate_ai_images or assemble_video:
+            try:
+                from image_generator import generate_images_for_script
+                generate_images_for_script(script_model, force_refresh=force_refresh)
+            except Exception as exc:
+                LOGGER.warning(f"AI image generation failed for '{topic_title}': {exc}")
+
+        # 4. Automated 1080p Video Assembly with Audio Ducking & Subtitles
+        if assemble_video and voice_path and Path(voice_path).exists():
+            try:
+                from video_assembler import assemble_video_from_script
+                assemble_video_from_script(
+                    script_data=script_model,
+                    voiceover_path=str(voice_path),
+                    add_bgm=add_bgm,
+                    bgm_genre=bgm_genre,
+                )
+            except Exception as exc:
+                LOGGER.warning(f"Video assembly failed for '{topic_title}': {exc}")
+
+        # 5. Shorts & Reels Repurposing
         if generate_shorts:
             try:
                 shorts = generate_shorts_from_topic_or_script(topic_title, script_model, gemini_model=model_name)
@@ -212,7 +238,7 @@ def run_pipeline(
             except Exception as exc:
                 LOGGER.warning(f"Shorts generation failed for '{topic_title}': {exc}")
 
-        # 4. Thumbnail Prompts & Mockup Card
+        # 6. Thumbnail Prompts & Mockup Card
         if design_thumbnails:
             try:
                 t_model = design_thumbnail_prompts(topic_title, gemini_model=model_name)
@@ -261,6 +287,10 @@ def main() -> None:
     parser.add_argument("--voice", default="vi-male", help="Voice shortcut or neural voice name.")
     parser.add_argument("--generate-shorts", action="store_true", help="Automatically generate 3 viral Shorts scripts.")
     parser.add_argument("--design-thumbnails", action="store_true", help="Generate AI thumbnail prompts and mockup.")
+    parser.add_argument("--generate-ai-images", action="store_true", help="Generate 100% Free Full HD AI scene visuals via Pollinations FLUX.1.")
+    parser.add_argument("--assemble-video", action="store_true", help="Assemble complete 1080p MP4 video with AI visuals, BGM ducking, and kinetic subtitles.")
+    parser.add_argument("--no-bgm", action="store_true", help="Disable background music mixing.")
+    parser.add_argument("--bgm-genre", default="lofi", choices=["lofi", "cinematic", "tech"], help="Background music genre.")
     parser.add_argument("--force-refresh", action="store_true", help="Bypass cache for analysis.")
     parser.add_argument("--resume", action="store_true", help="Resume interrupted batch run from checkpoint state.")
     parser.add_argument("--validate-keys", action="store_true", help="Run pre-flight API diagnostics.")
@@ -319,6 +349,10 @@ def main() -> None:
             generate_tts=args.generate_tts,
             generate_shorts=args.generate_shorts,
             design_thumbnails=args.design_thumbnails,
+            generate_ai_images=args.generate_ai_images,
+            assemble_video=args.assemble_video,
+            add_bgm=not args.no_bgm,
+            bgm_genre=args.bgm_genre,
             force_refresh=args.force_refresh,
             tts_voice=args.voice,
             resume=args.resume,

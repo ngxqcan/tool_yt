@@ -39,7 +39,7 @@ from shorts_generator import generate_shorts_from_topic_or_script, save_shorts_o
 from thumbnail_designer import design_thumbnail_prompts, render_thumbnail_mockup
 from tts_generator import list_available_voices
 from utils import generate_subtitles, validate_api_keys
-from video_assembler import render_slide_image
+from video_assembler import render_kinetic_subtitle_frame
 
 
 class TestModelsAndJsonCleaning(unittest.TestCase):
@@ -238,15 +238,39 @@ class TestShortsAndCommunity(unittest.TestCase):
         self.assertIn("vi-male", voices)
         self.assertIn("en-male", voices)
 
-    def test_render_slide_image(self):
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+    def test_image_generator_fallback(self):
+        from image_generator import generate_offline_fallback_image
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as f:
             tmp_img = Path(f.name)
         try:
-            res = render_slide_image("Title Test", "Subtitle Test", tmp_img)
+            res = generate_offline_fallback_image("Prompt Test", tmp_img, 1280, 720)
             self.assertTrue(res.exists())
+            self.assertGreater(res.stat().st_size, 1000)
         finally:
             if tmp_img.exists():
                 os.remove(tmp_img)
+
+    def test_audio_mixer_procedural_sfx_and_bgm(self):
+        from audio_mixer import create_procedural_bgm, create_procedural_sfx
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sfx_p = create_procedural_sfx("whoosh", Path(tmpdir) / "whoosh.wav")
+            self.assertTrue(sfx_p.exists())
+
+            bgm_p = create_procedural_bgm("lofi", duration_seconds=1.5, output_path=Path(tmpdir) / "bgm.wav")
+            self.assertTrue(bgm_p.exists())
+            self.assertGreater(bgm_p.stat().st_size, 10000)
+
+    def test_render_kinetic_subtitle_frame(self):
+        from video_assembler import render_kinetic_subtitle_frame
+        with tempfile.TemporaryDirectory() as tmpdir:
+            base_img = Path(tmpdir) / "base.jpg"
+            from PIL import Image
+            Image.new("RGB", (640, 360), color="gray").save(str(base_img))
+
+            out_frame = Path(tmpdir) / "frame_out.jpg"
+            res = render_kinetic_subtitle_frame(base_img, "This is a MrBeast style kinetic subtitle test", out_frame, 640, 360)
+            self.assertTrue(res.exists())
+            self.assertGreater(res.stat().st_size, 1000)
 
 
 class TestMainPipeline(unittest.TestCase):
@@ -277,6 +301,8 @@ class TestMainPipeline(unittest.TestCase):
                 generate_tts=False,
                 generate_shorts=True,
                 design_thumbnails=True,
+                generate_ai_images=False,
+                assemble_video=False,
             )
             self.assertEqual(len(out_files), 1)
             self.assertTrue(out_files[0].exists())
@@ -284,3 +310,4 @@ class TestMainPipeline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -302,24 +302,91 @@ with tab4:
 # -----------------------------------------------------------------------------
 with tab5:
     st.markdown('<div class="main-header">Automated Video Assembly & Upload</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Composite voiceover + slides + subtitles into an MP4 video and publish to YouTube.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">Composite 100% Free AI Visuals + Voiceover + BGM Audio Ducking + Kinetic Subtitles into a 1080p MP4 video.</div>', unsafe_allow_html=True)
 
-    st.markdown("### 🎬 1-Click Video Assembly")
-    audio_src = st.text_input("Path to Voiceover Audio (.mp3):", st.session_state.get("last_audio_file", ""))
-    v_title = st.text_input("Video On-Screen Title:", "Quantum Computing 2026")
-    v_sub = st.text_input("Video Tagline:", "The Definitive Breakdown")
+    v_mode = st.radio("Assembly Mode:", ["Full Multi-Scene Script Video (Recommended)", "Quick Single-Slide Video"], horizontal=True)
 
-    if st.button("🎥 Render 1080p MP4 Video", type="primary"):
-        if not audio_src or not Path(audio_src).exists():
-            st.error("Please provide a valid audio file path (or generate one in Tab 3).")
+    if v_mode == "Full Multi-Scene Script Video (Recommended)":
+        st.markdown("#### 🎬 Full Multi-Scene Production")
+        if "current_script" not in st.session_state:
+            st.info("💡 Generate a script in **Tab 2** first to enable 1-click full multi-scene assembly.")
+        
+        audio_src = st.text_input("Path to Master Voiceover Audio (.mp3):", st.session_state.get("last_audio_file", ""))
+        col_bgm1, col_bgm2 = st.columns(2)
+        with col_bgm1:
+            bgm_genre = st.selectbox("Background Music Genre (Zero Copyright):", ["lofi", "cinematic", "tech"])
+        with col_bgm2:
+            is_vert = st.checkbox("Vertical Shorts format (1080x1920)", value=False)
+        
+        add_bgm = st.checkbox("Enable Intelligent Audio Ducking & Transition SFX", value=True)
+
+        if st.button("🚀 Render Master 1080p Video", type="primary"):
+            if not audio_src or not Path(audio_src).exists():
+                st.error("Please provide a valid audio file path (or generate one in Tab 3).")
+            elif "current_script" not in st.session_state:
+                st.error("No active script found in session. Please generate a script in Tab 2.")
+            else:
+                with st.spinner("Generating 100% Free AI scene visuals, mixing BGM with Ducking & rendering 1080p MP4..."):
+                    try:
+                        from video_assembler import assemble_video_from_script
+                        rendered_mp4 = assemble_video_from_script(
+                            script_data=st.session_state["current_script"],
+                            voiceover_path=audio_src,
+                            add_bgm=add_bgm,
+                            bgm_genre=bgm_genre,
+                            is_vertical=is_vert,
+                        )
+                        st.success(f"✅ 1080p Video Rendered: `{rendered_mp4.name}`")
+                        st.video(str(rendered_mp4))
+                        with open(rendered_mp4, "rb") as f:
+                            st.download_button("📥 Download 1080p MP4 Video", f, file_name=rendered_mp4.name, mime="video/mp4")
+                        st.session_state["last_video_file"] = str(rendered_mp4)
+                    except Exception as e:
+                        st.error(f"Video assembly failed: {e}")
+
+    else:
+        st.markdown("#### ⚡ Quick Slide Video")
+        audio_src = st.text_input("Path to Voiceover Audio (.mp3):", st.session_state.get("last_audio_file", ""), key="quick_audio")
+        v_title = st.text_input("Video On-Screen Title:", "Quantum Computing 2026")
+        v_sub = st.text_input("Video Tagline:", "The Definitive Breakdown")
+
+        if st.button("🎥 Render Quick Video", type="primary"):
+            if not audio_src or not Path(audio_src).exists():
+                st.error("Please provide a valid audio file path (or generate one in Tab 3).")
+            else:
+                with st.spinner("Rendering quick 1080p video with kinetic text..."):
+                    try:
+                        from video_assembler import assemble_quick_video
+                        rendered_mp4 = assemble_quick_video(audio_path=audio_src, title=v_title, subtitle=v_sub)
+                        st.success(f"✅ Video Rendered: `{rendered_mp4.name}`")
+                        st.video(str(rendered_mp4))
+                        with open(rendered_mp4, "rb") as f:
+                            st.download_button("📥 Download 1080p MP4 Video", f, file_name=rendered_mp4.name, mime="video/mp4")
+                        st.session_state["last_video_file"] = str(rendered_mp4)
+                    except Exception as e:
+                        st.error(f"Quick video assembly failed: {e}")
+
+    st.markdown("---")
+    st.markdown("### 📤 Direct YouTube Publishing")
+    upload_file = st.text_input("Video File to Upload:", st.session_state.get("last_video_file", ""))
+    up_title = st.text_input("Upload Title:", "How Quantum Computing Breaks Encryption")
+    up_desc = st.text_area("Upload Description:", "Full breakdown of post-quantum cryptography.")
+    up_privacy = st.selectbox("Privacy Status:", ["private", "unlisted", "public"])
+
+    if st.button("🚀 Upload Directly to YouTube", type="secondary"):
+        if not upload_file or not Path(upload_file).exists():
+            st.error("Video file does not exist. Please render a video first.")
         else:
-            with st.spinner("Rendering video using MoviePy and Pillow..."):
+            with st.spinner("Authenticating and uploading video to YouTube..."):
                 try:
-                    from video_assembler import assemble_video
-                    rendered_mp4 = assemble_video(audio_path=audio_src, title=v_title, subtitle=v_sub)
-                    st.success(f"✅ Video Rendered: {rendered_mp4.name}")
-                    st.video(str(rendered_mp4))
-                    with open(rendered_mp4, "rb") as f:
-                        st.download_button("📥 Download Final MP4", f, file_name=rendered_mp4.name, mime="video/mp4")
+                    from youtube_uploader import upload_video_to_youtube
+                    vid_id = upload_video_to_youtube(
+                        video_file=upload_file,
+                        title=up_title,
+                        description=up_desc,
+                        privacy_status=up_privacy,
+                    )
+                    st.success(f"🎉 Successfully Uploaded to YouTube! Video ID: `{vid_id}`")
+                    st.markdown(f"[View Video on YouTube](https://www.youtube.com/watch?v={vid_id})")
                 except Exception as e:
-                    st.error(f"Video rendering error: {e}")
+                    st.error(f"Upload failed: {e}")

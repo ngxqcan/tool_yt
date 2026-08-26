@@ -3,14 +3,15 @@
 [![CI Test Suite](https://github.com/ngxqcan/tool_yt/actions/workflows/test.yml/badge.svg)](https://github.com/ngxqcan/tool_yt/actions/workflows/test.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Pydantic v2](https://img.shields.io/badge/pydantic-v2-green.svg)](https://docs.pydantic.dev/)
+[![Zero Cost: 100% Free](https://img.shields.io/badge/Cost-100%25_Free_0đ-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Streamlit App](https://img.shields.io/badge/Streamlit-Web_UI-FF4B4B.svg)](https://streamlit.io/)
 
-An end-to-end automated YouTube content powerhouse. From competitor format DNA extraction and viral outlier discovery to original scriptwriting, Shorts repurposing, Edge-TTS studio voiceovers, AI thumbnail vision analysis, and automated 1080p video assembly.
+An end-to-end automated YouTube content creation powerhouse built with a strict **100% Free / Zero-Cost** architecture. From competitor format DNA extraction and viral outlier discovery to original scriptwriting, Shorts repurposing, Edge-TTS studio voiceovers, 100% Free FLUX.1 AI visuals, smart audio ducking with BGM & SFX, and MrBeast-style kinetic subtitle video assembly.
 
 ---
 
-## 🌟 Comprehensive Feature Map
+## 🌟 Comprehensive Feature Map (100% Zero Cost)
 
 ```
                           ┌────────────────────────┐
@@ -19,10 +20,10 @@ An end-to-end automated YouTube content powerhouse. From competitor format DNA e
                                       │
     ┌──────────────────┬──────────────┼──────────────┬──────────────────┐
     ▼                  ▼              ▼              ▼                  ▼
-[1. Intelligence]  [2. Scripting] [3. Voiceover]  [4. Visuals]    [5. Assembly]
-- Channel Outliers - Long-form    - Edge-TTS      - Vision Eye    - 1080p MP4
-- Comment Gaps     - 3x Shorts    - Multi-voice   - Midjourney    - Subtitles
-- Format DNA       - Subtitles    - Vi & En       - PIL Mockups   - Auto-Upload
+[1. Intelligence]  [2. Scripting] [3. Voice & BGM][4. Free Visuals][5. Assembly]
+- Channel Outliers - Long-form    - Edge-TTS      - FLUX.1 AI      - 1080p MP4
+- Comment Gaps     - 3x Shorts    - Smart Ducking - Vision Eye     - MrBeast Subs
+- Format DNA       - Subtitles    - CC0 SFX/BGM   - PIL Mockups    - Auto-Upload
 ```
 
 ### 1. Pre-Production Intelligence
@@ -36,11 +37,17 @@ An end-to-end automated YouTube content powerhouse. From competitor format DNA e
 - **Shorts Repurposing Engine (`shorts_generator.py`)**: Derives 3 high-impact vertical short-form scripts (<60s) with 9:16 subtitle files.
 - **Community & Newsletter (`community_generator.py`)**: Generates YouTube Community Polls and email newsletter summaries.
 
-### 3. Voiceover, Visuals & Video Production
+### 3. Voiceover & Smart Sound Design (Zero Cost)
 - **Neural Voiceover Studio (`tts_generator.py`)**: Free, unlimited neural voiceovers via Microsoft Edge-TTS (Vietnamese Hoài My/Nam Minh, English US/UK).
-- **AI Thumbnail Designer (`thumbnail_designer.py`)**: Builds optimized prompts for Midjourney v6, DALL-E 3, and Imagen 3, plus renders 720p PNG mockup cards.
+- **Smart Audio Mixer & Ducking (`audio_mixer.py`)**: Automatically blends background music (Lo-Fi, Cinematic, Tech), applies **Audio Ducking** (-18dB during speech), and injects transition sound effects (Whoosh, Pop).
+
+### 4. 100% Free AI Visuals & Thumbnail Design
+- **Free AI Image Generator (`image_generator.py`)**: Uses Pollinations AI / FLUX.1 to automatically generate 1080p full HD scene visuals from script B-roll prompts without requiring subscriptions or API keys.
+- **AI Thumbnail Designer (`thumbnail_designer.py`)**: Formulates high-CTR prompts and renders 720p PNG mockup cards.
 - **Stock B-Roll Finder (`broll_finder.py`)**: Pexels / Pixabay stock footage integration.
-- **Automated Video Assembler (`video_assembler.py`)**: 1-click video rendering combining voiceover, visuals, and subtitles into 1080p MP4.
+
+### 5. Automated Video Compositor
+- **Kinetic Video Assembler (`video_assembler.py`)**: 1-click video rendering combining voiceover, AI visuals, smart ducking BGM, and MrBeast-style bold stroke neon subtitles into 1080p MP4.
 - **Direct YouTube Upload (`youtube_uploader.py`)**: OAuth 2.0 video publishing.
 
 ---
@@ -59,7 +66,7 @@ Includes 5 interactive studios:
 2. **✍️ Script & Shorts Studio**: Write long-form scripts and auto-extract 3 companion vertical Shorts.
 3. **🎙️ Neural Voiceover Studio**: Listen to Edge-TTS voiceovers and download MP3s.
 4. **🎨 Thumbnail Studio**: View AI image prompts and download 720p mockup thumbnail graphics.
-5. **🎬 Video Assembly & Upload**: 1-click video render and YouTube upload.
+5. **🎬 Video Assembly & Upload**: 1-click 1080p video render with AI visuals, BGM audio ducking, and kinetic subtitles.
 
 ---
 
@@ -79,6 +86,9 @@ cp .env.example .env
 GEMINI_API_KEY=your_gemini_api_key_here
 YOUTUBE_API_KEY=your_youtube_data_api_v3_key_here
 GEMINI_MODEL=gemini-2.5-flash
+LOG_DIR=logs
+CACHE_DIR=cache
+OUTPUT_DIR=output
 ```
 
 Verify your API keys:
@@ -90,39 +100,24 @@ python main.py --validate-keys
 
 ## 🛠️ CLI Quick Reference
 
-### Full Batch Pipeline with Progress Bar & Checkpoint Resume:
+### Full End-to-End Batch Video Factory (Script + Voiceover + Free AI Visuals + Audio Ducking + Video):
 ```bash
-python main.py --topics topics.csv --resume --generate-tts --generate-shorts --design-thumbnails
+python main.py --topics topics.csv --resume --generate-tts --generate-shorts --design-thumbnails --generate-ai-images --assemble-video
 ```
 
-### Analyze Actual Thumbnail Image with Gemini Vision:
+### Generate 100% Free AI Image via FLUX.1:
 ```bash
-python main.py --analyze-thumbnail "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+python image_generator.py --prompt "futuristic cyber server room 4k cinematic" --output scene.jpg
 ```
 
-### Scan Channel for Viral Outliers:
+### Mix Audio with Background Music & Audio Ducking:
 ```bash
-python main.py --channel "@mkbhd" --min-score 2.5
+python audio_mixer.py --voiceover output/voiceover/voice_sample.mp3 --bgm-genre lofi
 ```
 
-### Mine Video Comment Gaps:
+### Assemble 1080p MP4 Video with MrBeast Subtitles:
 ```bash
-python comment_miner.py --url "https://www.youtube.com/watch?v=VIDEO_ID"
-```
-
-### Generate Neural Voiceover:
-```bash
-python tts_generator.py --text "Xin chào các bạn!" --voice vi-male --output output/voice.mp3
-```
-
-### Generate 3 Viral YouTube Shorts:
-```bash
-python shorts_generator.py --topic "AI Agents in 2026"
-```
-
-### Assemble & Render 1080p MP4 Video:
-```bash
-python video_assembler.py --audio output/voice.mp3 --title "AI Breakthrough" --subtitle "The 2026 Guide"
+python video_assembler.py --script output/script_sample.json --audio output/voiceover/voice_sample.mp3
 ```
 
 ---
@@ -140,13 +135,11 @@ Explore full production examples in the [`examples/`](./examples) directory:
 ## ⚠️ Limitations & Edge Cases
 
 1. **Captions / Transcript Availability**:
-   If a competitor video has disabled captions or contains no speech, the analyzer will automatically log a warning and fall back to metadata-only format heuristics.
+   If a competitor video has disabled captions, the analyzer falls back to metadata heuristics.
 2. **Quota & Rate Limits**:
-   Batch runs utilize an exponential backoff retry handler (`@retry_with_backoff`) and a default rate limiter (`--rate-limit-delay 2.0s`). For large batches (100+ topics), use `--resume` to ensure interrupted runs resume without losing progress.
-3. **Thumbnail Image Resolutions**:
-   YouTube provides `maxresdefault.jpg` only for videos uploaded in 720p or higher. For older/lower resolution videos, the system automatically falls back to `hqdefault.jpg`.
-4. **Guardrail Integrity**:
-   The prompt architecture strictly instructs Gemini to analyze abstract structure only. It is recommended to perform domain-specific fact-checking for specialized technical topics.
+   Batch runs utilize an exponential backoff retry handler (`@retry_with_backoff`) and rate limiting. Use `--resume` for large batch runs.
+3. **Zero-Cost Image Generation**:
+   Pollinations AI FLUX.1 model generates images free without API keys. In case of offline execution, deterministic procedural gradients are generated locally.
 
 ---
 
