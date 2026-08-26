@@ -31,6 +31,8 @@ from models import (
 from utils import (
     ensure_dir,
     generate_subtitles,
+    get_cache_dir,
+    get_output_dir,
     get_project_root,
     retry_with_backoff,
     setup_logging,
@@ -334,7 +336,7 @@ def save_script_outputs(
         model = script_data
 
     topic_slug = "".join(c if c.isalnum() else "_" for c in model.topic).strip("_")[:50]
-    output_dir = ensure_dir(get_project_root() / "output")
+    output_dir = ensure_dir(get_output_dir())
 
     if output_path:
         target_file = Path(output_path).resolve()

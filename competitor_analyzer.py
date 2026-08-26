@@ -24,7 +24,15 @@ import requests
 from dotenv import load_dotenv
 
 from models import StyleTemplateModel, TitleThumbnailPatternModel, parse_and_validate_json
-from utils import ensure_dir, get_project_root, retry_with_backoff, setup_logging
+from utils import (
+    ensure_dir,
+    get_cache_dir,
+    get_log_dir,
+    get_output_dir,
+    get_project_root,
+    retry_with_backoff,
+    setup_logging,
+)
 
 load_dotenv()
 
@@ -81,7 +89,7 @@ def log_audit_trail(video_id: str, action: str, details: Optional[Dict[str, Any]
 
     Ensures a clear, immutable compliance record showing only structural analysis was performed.
     """
-    logs_dir = ensure_dir(get_project_root() / "logs")
+    logs_dir = get_log_dir()
     log_file = logs_dir / "competitor_analysis.log"
     timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -116,7 +124,7 @@ def fetch_public_metadata(
     Saves raw metadata to cache/competitor/{video_id}/metadata.json
     """
     api_key = api_key or os.getenv("YOUTUBE_API_KEY")
-    cache_dir = ensure_dir(get_project_root() / "cache" / "competitor" / video_id)
+    cache_dir = ensure_dir(get_cache_dir() / "competitor" / video_id)
     metadata_file = cache_dir / "metadata.json"
 
     # Check cache if not forcing refresh
@@ -125,7 +133,7 @@ def fetch_public_metadata(
             with open(metadata_file, "r", encoding="utf-8") as f:
                 cached_data = json.load(f)
             if cached_data.get("title"):
-                LOGGER.info(f"Loaded metadata from cache for video: {video_id}")
+                LOGGER.info(f"[CACHE HIT] Loaded metadata from cache for video: {video_id}")
                 return cached_data
         except Exception as exc:
             LOGGER.warning(f"Cache read error for {video_id} metadata: {exc}")
@@ -217,7 +225,7 @@ def fetch_transcript(
 
     Saves to cache/competitor/{video_id}/transcript.json marked as 'reference-only, do not quote'.
     """
-    cache_dir = ensure_dir(get_project_root() / "cache" / "competitor" / video_id)
+    cache_dir = ensure_dir(get_cache_dir() / "competitor" / video_id)
     transcript_file = cache_dir / "transcript.json"
 
     if not force_refresh and transcript_file.exists():
@@ -225,7 +233,7 @@ def fetch_transcript(
             with open(transcript_file, "r", encoding="utf-8") as f:
                 cached_data = json.load(f)
             if cached_data.get("entries"):
-                LOGGER.info(f"Loaded transcript from cache for video: {video_id}")
+                LOGGER.info(f"[CACHE HIT] Loaded transcript from cache for video: {video_id}")
                 return cached_data
         except Exception as exc:
             LOGGER.warning(f"Cache read error for {video_id} transcript: {exc}")
@@ -465,7 +473,7 @@ Return ONLY valid JSON matching this schema:
     template_model.generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
     # Cache result
-    cache_dir = ensure_dir(get_project_root() / "cache" / "competitor" / video_id)
+    cache_dir = ensure_dir(get_cache_dir() / "competitor" / video_id)
     template_file = cache_dir / "style_template.json"
     with open(template_file, "w", encoding="utf-8") as f:
         f.write(template_model.model_dump_json(indent=2))
@@ -575,7 +583,7 @@ def analyze_multiple_competitors(
         )
 
     # Save synthesized template
-    composite_dir = ensure_dir(get_project_root() / "cache" / "competitor" / "composite")
+    composite_dir = ensure_dir(get_cache_dir() / "competitor" / "composite")
     composite_file = composite_dir / "style_template.json"
     with open(composite_file, "w", encoding="utf-8") as f:
         f.write(composite.model_dump_json(indent=2))
@@ -614,7 +622,7 @@ def analyze_competitor_video(
             f.write(style_template_model.model_dump_json(indent=2))
         target_path = str(out_file)
     else:
-        target_path = str(get_project_root() / "cache" / "competitor" / video_id / "style_template.json")
+        target_path = str(get_cache_dir() / "competitor" / video_id / "style_template.json")
 
     LOGGER.info(f"Style template successfully generated: {target_path}")
     return target_path

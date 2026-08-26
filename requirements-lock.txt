@@ -1,0 +1,14 @@
+youtube-transcript-api==1.2.4
+google-genai==2.20.0
+requests==2.34.2
+python-dotenv==1.2.3
+pydantic==2.13.4
+tenacity==9.1.4
+edge-tts==7.2.8
+streamlit==1.62.0
+moviepy==2.2.1
+pillow==11.3.0
+google-api-python-client==2.164.0
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+tqdm==4.70.0

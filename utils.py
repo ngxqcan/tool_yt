@@ -29,6 +29,27 @@ def ensure_dir(path: Path) -> Path:
     return path
 
 
+def get_log_dir() -> Path:
+    """Return configured logs directory from LOG_DIR env or default 'logs'."""
+    raw = os.getenv("LOG_DIR", "logs").strip()
+    p = Path(raw)
+    return ensure_dir(p if p.is_absolute() else get_project_root() / p)
+
+
+def get_cache_dir() -> Path:
+    """Return configured cache directory from CACHE_DIR env or default 'cache'."""
+    raw = os.getenv("CACHE_DIR", "cache").strip()
+    p = Path(raw)
+    return ensure_dir(p if p.is_absolute() else get_project_root() / p)
+
+
+def get_output_dir() -> Path:
+    """Return configured output directory from OUTPUT_DIR env or default 'output'."""
+    raw = os.getenv("OUTPUT_DIR", "output").strip()
+    p = Path(raw)
+    return ensure_dir(p if p.is_absolute() else get_project_root() / p)
+
+
 def setup_logging(logger_name: str, log_file_name: str = "app.log") -> logging.Logger:
     """Configure a logger with both console and RotatingFileHandler."""
     logger = logging.getLogger(logger_name)
@@ -47,7 +68,7 @@ def setup_logging(logger_name: str, log_file_name: str = "app.log") -> logging.L
         logger.addHandler(ch)
 
         # Rotating File Handler
-        logs_dir = ensure_dir(get_project_root() / "logs")
+        logs_dir = get_log_dir()
         log_path = logs_dir / log_file_name
         try:
             fh = RotatingFileHandler(
