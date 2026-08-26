@@ -274,6 +274,7 @@ def main() -> None:
         default=None,
         help="Path to style_template.json produced by competitor_analyzer.py.",
     )
+    parser.add_argument("--auto-all-in-one", default=None, help="1-Click All-in-One Autopilot from a single competitor URL (runs DNA + Script + TTS + Shorts + Thumbnails + AI Visuals + 1080p Video).")
     parser.add_argument("--competitor_url", "-c", default=None, help="Competitor reference URL(s).")
     parser.add_argument("--competitor_urls", default=None, help="Comma-separated list of competitor URLs.")
     parser.add_argument("--channel", default=None, help="Crawl channel for viral outlier videos (@handle or ID).")
@@ -332,6 +333,22 @@ def main() -> None:
         mine_video_comments(args.mine_comments)
         return
 
+    comp_url = args.competitor_url
+    gen_tts = args.generate_tts
+    gen_shorts = args.generate_shorts
+    gen_thumbs = args.design_thumbnails
+    gen_ai_imgs = args.generate_ai_images
+    assemb_vid = args.assemble_video
+
+    if args.auto_all_in_one:
+        comp_url = args.auto_all_in_one
+        gen_tts = True
+        gen_shorts = True
+        gen_thumbs = True
+        gen_ai_imgs = True
+        assemb_vid = True
+        LOGGER.info(f"⚡ [All-in-One Autopilot] Activated for competitor URL: {comp_url}")
+
     competitor_url_list = None
     if args.competitor_urls:
         competitor_url_list = [u.strip() for u in args.competitor_urls.split(",") if u.strip()]
@@ -340,17 +357,17 @@ def main() -> None:
         run_pipeline(
             topics_path=args.topics,
             style_template_path=args.style_template,
-            competitor_url=args.competitor_url,
+            competitor_url=comp_url,
             competitor_urls=competitor_url_list,
             output_dir=args.output_dir,
             model_name=args.model,
             rate_limit_delay=args.rate_limit_delay,
             export_subtitles=not args.no_subtitles,
-            generate_tts=args.generate_tts,
-            generate_shorts=args.generate_shorts,
-            design_thumbnails=args.design_thumbnails,
-            generate_ai_images=args.generate_ai_images,
-            assemble_video=args.assemble_video,
+            generate_tts=gen_tts,
+            generate_shorts=gen_shorts,
+            design_thumbnails=gen_thumbs,
+            generate_ai_images=gen_ai_imgs,
+            assemble_video=assemb_vid,
             add_bgm=not args.no_bgm,
             bgm_genre=args.bgm_genre,
             force_refresh=args.force_refresh,

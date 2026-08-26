@@ -1,6 +1,9 @@
 """Interactive Bilingual Streamlit Web Dashboard for YouTube AI Production Suite.
 
-Supports seamless language switching (🇻🇳 Tiếng Việt & 🇬🇧 English) with 100% persistent state across tab navigation.
+Includes:
+- ⚡ 1-Click All-in-One Autonomous Production Pipeline (DNA -> Script -> Voiceover -> Thumbnail -> 1080p Video).
+- 5 Modular Studios (Competitor Explorer, Script Studio, Voiceover Studio, Thumbnail Studio, Video Assembly).
+- 100% Persistent State across all tabs with Seamless Vietnamese 🇻🇳 / English 🇬🇧 toggles.
 
 Run with:
     streamlit run app.py
@@ -104,13 +107,148 @@ st.sidebar.markdown(t("tip_env"))
 # -----------------------------------------------------------------------------
 # MAIN DASHBOARD TABS
 # -----------------------------------------------------------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    t("tab0_name"),
     t("tab1_name"),
     t("tab2_name"),
     t("tab3_name"),
     t("tab4_name"),
     t("tab5_name"),
 ])
+
+# -----------------------------------------------------------------------------
+# TAB 0: All-in-One Autopilot
+# -----------------------------------------------------------------------------
+with tab0:
+    st.markdown(f'<div class="main-header">{t("tab0_header")}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sub-header">{t("tab0_sub")}</div>', unsafe_allow_html=True)
+
+    col1, col2 = st.columns([3, 2])
+    with col1:
+        auto_url = st.text_input(t("auto_url_label"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        auto_topic = st.text_input(t("auto_topic_label"), "", placeholder=t("auto_topic_placeholder"))
+    with col2:
+        auto_lang = st.selectbox(t("auto_lang_label"), ["🇻🇳 Tiếng Việt", "🇬🇧 English"], index=0 if current_lang == "vi" else 1)
+        lang_code = "vi" if "Tiếng Việt" in auto_lang else "en"
+        default_voice_idx = 0 if lang_code == "vi" else 2
+        auto_voice = st.selectbox(t("auto_voice_label"), list(VOICES.keys()), index=default_voice_idx, format_func=lambda k: f"{k} ({VOICES[k]})")
+
+    col3, col4 = st.columns(2)
+    with col3:
+        auto_bgm = st.selectbox(t("auto_bgm_label"), ["cinematic", "lofi", "tech"])
+    with col4:
+        auto_format = st.radio(t("auto_format_label"), [t("auto_format_wide"), t("auto_format_vert")], horizontal=True)
+        is_vert = auto_format == t("auto_format_vert")
+
+    if st.button(t("btn_start_autopilot"), type="primary", use_container_width=True):
+        status_box = st.status(t("btn_start_autopilot"), expanded=True)
+        try:
+            # 1. Competitor DNA
+            status_box.update(label=t("step1_status"), state="running")
+            tmpl_path = analyze_competitor_video(auto_url, force_refresh=False)
+            with open(tmpl_path, "r", encoding="utf-8") as f:
+                tmpl_data = json.load(f)
+            st.session_state["single_dna_result"] = tmpl_data
+            st.session_state["single_dna_path"] = str(tmpl_path)
+            st.session_state["active_template_path"] = str(tmpl_path)
+
+            # Determine topic
+            actual_topic = auto_topic.strip()
+            if not actual_topic:
+                actual_topic = tmpl_data.get("topic", "The Untold Science and History")
+                if lang_code == "vi" and (actual_topic == "The Untold Science and History" or "ancient" in auto_url.lower()):
+                    actual_topic = "Bí Quyết Sinh Tồn Và Phát Triển Của Con Người Thời Cổ Đại"
+
+            # 2. Script & Shorts
+            status_box.update(label=t("step2_status"), state="running")
+            script = generate_script(
+                topic=actual_topic,
+                style_template_source=tmpl_path,
+                language=lang_code,
+            )
+            saved_script_path = save_script_outputs(script)
+            st.session_state["current_script"] = script.model_dump()
+            st.session_state["active_script_file"] = str(saved_script_path)
+
+            shorts_res = generate_shorts_from_topic_or_script(actual_topic, script)
+            save_shorts_outputs(shorts_res)
+            st.session_state["current_shorts"] = shorts_res.model_dump()
+
+            # 3. Voiceover
+            status_box.update(label=t("step3_status"), state="running")
+            full_voiceover_text = script.hook.spoken_dialogue + " " + " ".join([s.spoken_dialogue for s in script.sections]) + " " + script.call_to_action_and_outro.spoken_dialogue
+            audio_file = generate_voiceover(text=full_voiceover_text, voice=auto_voice, rate="+0%")
+            st.session_state["last_audio_file"] = str(audio_file)
+
+            # 4. Thumbnail Prompts & Mockup
+            status_box.update(label=t("step4_status"), state="running")
+            t_model = design_thumbnail_prompts(actual_topic, target_emotion="High Shock & Curiosity")
+            st.session_state["current_thumbnail_model"] = t_model.model_dump()
+            first_text = t_model.prompts[0].recommended_text_overlay if t_model.prompts else actual_topic[:20]
+            mock_png = render_thumbnail_mockup(text_overlay=first_text, subtitle=actual_topic)
+            st.session_state["current_mockup_path"] = str(mock_png)
+
+            # 5. Video Assembly
+            status_box.update(label=t("step5_status"), state="running")
+            from video_assembler import assemble_video_from_script
+            rendered_mp4 = assemble_video_from_script(
+                script_data=st.session_state["current_script"],
+                voiceover_path=str(audio_file),
+                add_bgm=True,
+                bgm_genre=auto_bgm,
+                is_vertical=is_vert,
+            )
+            st.session_state["last_video_file"] = str(rendered_mp4)
+            st.session_state["autopilot_complete"] = True
+
+            status_box.update(label=t("autopilot_success_header"), state="complete", expanded=False)
+            st.balloons()
+
+        except Exception as e:
+            status_box.update(label=f"❌ Error: {e}", state="error")
+            st.error(f"Autopilot failed: {e}")
+
+    # Persistent presentation of completed All-In-One results
+    if st.session_state.get("autopilot_complete") and "last_video_file" in st.session_state:
+        st.markdown("---")
+        st.markdown(f"## {t('autopilot_success_header')}")
+        v_col1, v_col2 = st.columns([3, 2])
+        with v_col1:
+            st.markdown("### 🎬 Video 1080p Hoàn Chỉnh (Full AI Visuals + BGM Ducking + Phụ Đề)")
+            v_path = Path(st.session_state["last_video_file"])
+            if v_path.exists():
+                st.video(str(v_path))
+                with open(v_path, "rb") as f:
+                    st.download_button(t("btn_dl_video"), f, file_name=v_path.name, mime="video/mp4", type="primary")
+
+        with v_col2:
+            st.markdown("### 🖼️ Thumbnail & Giọng Đọc Studio")
+            if "current_mockup_path" in st.session_state and Path(st.session_state["current_mockup_path"]).exists():
+                st.image(st.session_state["current_mockup_path"], caption=t("mockup_caption"), use_container_width=True)
+            if "last_audio_file" in st.session_state and Path(st.session_state["last_audio_file"]).exists():
+                st.audio(st.session_state["last_audio_file"], format="audio/mp3")
+
+        st.markdown("---")
+        # Direct Upload Expander
+        with st.expander(t("yt_upload_header"), expanded=False):
+            up_t = st.session_state.get("current_script", {}).get("suggested_titles", ["My New Video"])[0]
+            auto_up_title = st.text_input(t("upload_title_label"), up_t, key="auto_yt_title")
+            auto_up_desc = st.text_area(t("upload_desc_label"), "Auto-generated with YouTube AI Production Suite.", key="auto_yt_desc")
+            auto_up_priv = st.selectbox(t("upload_privacy_label"), ["private", "unlisted", "public"], key="auto_yt_priv")
+            if st.button(t("btn_upload_yt"), key="auto_yt_btn", type="secondary"):
+                with st.spinner("Uploading to YouTube..."):
+                    try:
+                        from youtube_uploader import upload_video_to_youtube
+                        v_id = upload_video_to_youtube(
+                            video_file=st.session_state["last_video_file"],
+                            title=auto_up_title,
+                            description=auto_up_desc,
+                            privacy_status=auto_up_priv,
+                        )
+                        st.success(f"🎉 Successfully Uploaded to YouTube! Video ID: `{v_id}`")
+                        st.markdown(f"[View Video on YouTube](https://www.youtube.com/watch?v={v_id})")
+                    except Exception as e:
+                        st.error(f"Upload failed: {e}")
 
 # -----------------------------------------------------------------------------
 # TAB 1: Competitor & Outliers

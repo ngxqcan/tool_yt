@@ -12,11 +12,32 @@ TRANSLATIONS = {
         "tip_env": "💡 **Mẹo:** Bạn có thể cấu hình API keys trong file `.env`.",
         
         # Tabs
+        "tab0_name": "⚡ 0. All-in-One Autopilot",
         "tab1_name": "🔍 1. Đối Thủ & Outliers",
         "tab2_name": "✍️ 2. Kịch Bản & Shorts",
         "tab3_name": "🎙️ 3. Thu Âm Voiceover",
         "tab4_name": "🎨 4. Thiết Kế Thumbnail",
         "tab5_name": "🎬 5. Dựng Video & Đăng Kênh",
+
+        # Tab 0: All-in-One Autopilot
+        "tab0_header": "Quy Trình Tự Động Hóa 1-Chạm (All-in-One Autopilot)",
+        "tab0_sub": "Chỉ cần 1 URL đối thủ: Hệ thống tự phân tích DNA -> Viết kịch bản mới -> Thu âm AI -> Thiết kế Thumbnail -> Tạo ảnh AI & Render Video 1080p hoàn chỉnh!",
+        "auto_url_label": "Nhập URL Video YouTube đối thủ:",
+        "auto_topic_label": "Chủ đề video mới (Để trống nếu muốn AI tự đề xuất từ đối thủ):",
+        "auto_topic_placeholder": "Ví dụ: Làm sao con người cổ đại chế ngự voi ma mút?",
+        "auto_lang_label": "Ngôn ngữ sản xuất:",
+        "auto_voice_label": "Giọng đọc AI:",
+        "auto_bgm_label": "Nhạc nền (Royalty-Free):",
+        "auto_format_label": "Định dạng video:",
+        "auto_format_wide": "16:9 Video Dài (1920x1080 Full HD)",
+        "auto_format_vert": "9:16 Shorts/TikTok (1080x1920)",
+        "btn_start_autopilot": "🚀 Bắt Đầu Sản Xuất Video 1-Chạm (All-in-One)",
+        "autopilot_success_header": "🎉 QUY TRÌNH SẢN XUẤT HOÀN TẤT TRỌN VẸN 100%!",
+        "step1_status": "🔍 [1/5] Đang phân tích DNA & cấu trúc video đối thủ...",
+        "step2_status": "✍️ [2/5] Đang viết kịch bản nguyên bản 100% & 3 video Shorts...",
+        "step3_status": "🎙️ [3/5] Đang thu âm giọng đọc AI Studio chuyên nghiệp...",
+        "step4_status": "🎨 [4/5] Đang thiết kế Thumbnail CTR cao & render ảnh bìa...",
+        "step5_status": "🎬 [5/5] Đang sinh visual AI FLUX.1, mix nhạc Ducking & render video 1080p...",
 
         # Tab 1
         "tab1_header": "Phân Tích DNA Đối Thủ & Outliers",
@@ -104,11 +125,32 @@ TRANSLATIONS = {
         "tip_env": "💡 **Tip:** You can configure API keys in the `.env` file.",
         
         # Tabs
+        "tab0_name": "⚡ 0. All-in-One Autopilot",
         "tab1_name": "🔍 1. Competitor & Outliers",
         "tab2_name": "✍️ 2. Script & Shorts Studio",
         "tab3_name": "🎙️ 3. Neural Voiceover (TTS)",
         "tab4_name": "🎨 4. Thumbnail Studio",
         "tab5_name": "🎬 5. Video Assembly & Upload",
+
+        # Tab 0: All-in-One Autopilot
+        "tab0_header": "1-Click All-in-One Autonomous Production Pipeline",
+        "tab0_sub": "Provide 1 competitor URL: The system analyzes DNA -> Writes new original script -> Synthesizes neural voiceover -> Designs thumbnail -> Generates AI visuals & Renders 1080p MP4 video!",
+        "auto_url_label": "Enter Competitor YouTube URL:",
+        "auto_topic_label": "New Video Topic (Leave empty to auto-derive from competitor):",
+        "auto_topic_placeholder": "E.g. How Ancient Humans Conquered the Mammoth",
+        "auto_lang_label": "Production Language:",
+        "auto_voice_label": "AI Neural Voice:",
+        "auto_bgm_label": "Background Music (Royalty-Free):",
+        "auto_format_label": "Video Format:",
+        "auto_format_wide": "16:9 Long-Form (1920x1080 Full HD)",
+        "auto_format_vert": "9:16 Shorts/TikTok (1080x1920)",
+        "btn_start_autopilot": "🚀 Start 1-Click All-in-One Production",
+        "autopilot_success_header": "🎉 100% AUTONOMOUS VIDEO PRODUCTION COMPLETE!",
+        "step1_status": "🔍 [1/5] Extracting competitor structural DNA & format...",
+        "step2_status": "✍️ [2/5] Writing 100% original script & 3 viral Shorts...",
+        "step3_status": "🎙️ [3/5] Synthesizing neural studio voiceover (Edge-TTS)...",
+        "step4_status": "🎨 [4/5] Formulating high-CTR thumbnail prompts & rendering mockup...",
+        "step5_status": "🎬 [5/5] Generating AI visuals, mixing ducked audio & rendering 1080p MP4...",
 
         # Tab 1
         "tab1_header": "Competitor Format DNA & Outliers",
