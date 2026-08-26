@@ -73,8 +73,9 @@ def analyze_comment_gaps(
     gemini_model: Optional[str] = None,
 ) -> CommentGapAnalysisModel:
     """Use Gemini to identify unanswered questions and content gaps from viewer comments."""
-    api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    raw_g_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = raw_g_key if raw_g_key and not raw_g_key.lower().startswith("your_") else None
+    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     # Format top comments for prompt
     top_samples = sorted(comments, key=lambda c: c.get("like_count", 0), reverse=True)[:50]

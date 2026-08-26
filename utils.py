@@ -226,9 +226,9 @@ def validate_api_keys(
 
     Returns diagnostic status dict for pre-flight pipeline checks.
     """
-    g_key = gemini_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    y_key = youtube_key or os.getenv("YOUTUBE_API_KEY")
-    m_name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    g_key = gemini_key if gemini_key is not None else (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"))
+    y_key = youtube_key if youtube_key is not None else os.getenv("YOUTUBE_API_KEY")
+    m_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     results: Dict[str, Any] = {
         "gemini": {"configured": bool(g_key), "valid": False, "message": "Not configured"},

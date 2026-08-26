@@ -123,7 +123,8 @@ def fetch_public_metadata(
 
     Saves raw metadata to cache/competitor/{video_id}/metadata.json
     """
-    api_key = api_key or os.getenv("YOUTUBE_API_KEY")
+    raw_key = api_key or os.getenv("YOUTUBE_API_KEY")
+    api_key = raw_key if raw_key and not raw_key.lower().startswith("your_") else None
     cache_dir = ensure_dir(get_cache_dir() / "competitor" / video_id)
     metadata_file = cache_dir / "metadata.json"
 
@@ -384,8 +385,9 @@ def analyze_structure_with_gemini(
     Strict guardrail: Prompt explicitly forbids copying or summarizing specific content.
     """
     video_id = metadata.get("video_id", "unknown")
-    api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    raw_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = raw_api_key if raw_api_key and not raw_api_key.lower().startswith("your_") else None
+    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
     title_pattern = extract_title_thumbnail_pattern(metadata)
 
     # Condense transcript sample for structure
@@ -637,7 +639,7 @@ def main() -> None:
     group.add_argument("--urls", help="Comma-separated list of competitor YouTube URLs to synthesize.")
 
     parser.add_argument("--output", "-o", default=None, help="Optional custom output path for style_template.json.")
-    parser.add_argument("--model", "-m", default=None, help="Gemini model name (default: GEMINI_MODEL or gemini-2.5-flash).")
+    parser.add_argument("--model", "-m", default=None, help="Gemini model name (default: GEMINI_MODEL or gemini-3.6-flash).")
     parser.add_argument("--force-refresh", action="store_true", help="Bypass cache and force refetching metadata/transcript.")
     parser.add_argument("--languages", default="vi,en", help="Preferred subtitle languages, comma-separated (e.g. 'vi,en').")
     args = parser.parse_args()

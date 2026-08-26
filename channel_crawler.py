@@ -87,7 +87,8 @@ def crawl_channel_outliers(
     min_outlier_multiplier: float = 2.0,
 ) -> ChannelAnalysisModel:
     """Crawl recent channel uploads, compute baseline view metrics, and identify outlier videos."""
-    key = api_key or os.getenv("YOUTUBE_API_KEY")
+    raw_key = api_key or os.getenv("YOUTUBE_API_KEY")
+    key = raw_key if raw_key and not raw_key.lower().startswith("your_") else None
     if not key:
         LOGGER.warning("No YOUTUBE_API_KEY configured. Generating mock channel outlier analysis.")
         return _mock_channel_analysis(channel_input)

@@ -27,8 +27,9 @@ def generate_community_content(
     gemini_model: Optional[str] = None,
 ) -> CommunityPostModel:
     """Generate interactive YouTube Community Polls and newsletter digests."""
-    api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    raw_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = raw_api_key if raw_api_key and not raw_api_key.lower().startswith("your_") else None
+    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     prompt = f"""You are a community manager for a top-tier YouTube channel.
 Generate high-engagement audience content for this video topic:

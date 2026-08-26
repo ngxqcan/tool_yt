@@ -35,8 +35,9 @@ def generate_shorts_from_topic_or_script(
     gemini_model: Optional[str] = None,
 ) -> ShortsCollectionModel:
     """Generate 3 viral YouTube Shorts / TikTok / Reels scripts (<60s) derived from the main content."""
-    api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    raw_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = raw_api_key if raw_api_key and not raw_api_key.lower().startswith("your_") else None
+    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     long_script_context = ""
     if long_script:

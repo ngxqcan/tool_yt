@@ -72,8 +72,9 @@ def analyze_thumbnail_with_gemini_vision(
     gemini_model: Optional[str] = None,
 ) -> ThumbnailVisionAnalysisModel:
     """Pass the actual thumbnail image to Gemini Multimodal Vision for deep visual CTR analysis."""
-    api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    raw_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = raw_api_key if raw_api_key and not raw_api_key.lower().startswith("your_") else None
+    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     cache_file = ensure_dir(get_project_root() / "cache" / "competitor" / video_id) / "thumbnail_vision.json"
     if cache_file.exists():

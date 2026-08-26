@@ -118,8 +118,9 @@ def generate_script(
     """
     style_template = load_style_template(style_template_source)
     comment_gaps = load_comment_gaps(comment_gaps_source)
-    api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    raw_api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = raw_api_key if raw_api_key and not raw_api_key.lower().startswith("your_") else None
+    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 
     audience_str = target_audience or "General interested audience looking for actionable, clear insights"
 
@@ -437,7 +438,7 @@ def main() -> None:
         default=None,
         help="Path to comment_gaps.json produced by comment_miner.",
     )
-    parser.add_argument("--model", "-m", default=None, help="Gemini model (default: GEMINI_MODEL or gemini-2.5-flash).")
+    parser.add_argument("--model", "-m", default=None, help="Gemini model (default: GEMINI_MODEL or gemini-3.6-flash).")
     parser.add_argument("--output", "-o", default=None, help="Custom output JSON path.")
     parser.add_argument("--no-subtitles", action="store_true", help="Disable automatic SRT/VTT subtitle export.")
     args = parser.parse_args()

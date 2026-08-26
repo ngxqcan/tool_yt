@@ -85,7 +85,7 @@ cp .env.example .env
 ```env
 GEMINI_API_KEY=your_gemini_api_key_here
 YOUTUBE_API_KEY=your_youtube_data_api_v3_key_here
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 LOG_DIR=logs
 CACHE_DIR=cache
 OUTPUT_DIR=output

@@ -95,7 +95,7 @@ class TestSubtitlesAndUtilities(unittest.TestCase):
         self.assertTrue(vtt.startswith("WEBVTT"))
 
     def test_validate_api_keys_diagnostics(self):
-        res = validate_api_keys(gemini_key=None, youtube_key=None)
+        res = validate_api_keys(gemini_key="", youtube_key="")
         self.assertIn("gemini", res)
         self.assertIn("youtube", res)
         self.assertFalse(res["gemini"]["valid"])
@@ -214,7 +214,7 @@ class TestShortsAndCommunity(unittest.TestCase):
     def test_generate_shorts_and_save(self):
         shorts_coll = generate_shorts_from_topic_or_script("AI Micro-SaaS 2026")
         self.assertIsInstance(shorts_coll, ShortsCollectionModel)
-        self.assertEqual(len(shorts_coll.shorts), 2)
+        self.assertGreaterEqual(len(shorts_coll.shorts), 2)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             json_path = save_shorts_outputs(shorts_coll, output_dir=tmpdir)

@@ -287,7 +287,7 @@ def main() -> None:
     parser.add_argument("--voice", default="vi-male", help="Voice shortcut or neural voice name.")
     parser.add_argument("--generate-shorts", action="store_true", help="Automatically generate 3 viral Shorts scripts.")
     parser.add_argument("--design-thumbnails", action="store_true", help="Generate AI thumbnail prompts and mockup.")
-    parser.add_argument("--generate-ai-images", action="store_true", help="Generate 100% Free Full HD AI scene visuals via Pollinations FLUX.1.")
+    parser.add_argument("--generate-ai-images", action="store_true", help="Generate 100%% Free Full HD AI scene visuals via Pollinations FLUX.1.")
     parser.add_argument("--assemble-video", action="store_true", help="Assemble complete 1080p MP4 video with AI visuals, BGM ducking, and kinetic subtitles.")
     parser.add_argument("--no-bgm", action="store_true", help="Disable background music mixing.")
     parser.add_argument("--bgm-genre", default="lofi", choices=["lofi", "cinematic", "tech"], help="Background music genre.")

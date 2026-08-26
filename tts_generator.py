@@ -126,7 +126,7 @@ def main() -> None:
         default="vi-male",
         help=f"Voice key or name (choices: {', '.join(VOICES.keys())} or custom neural voice).",
     )
-    parser.add_argument("--rate", default="+0%", help="Speed adjustment, e.g. '+10%' or '-10%'.")
+    parser.add_argument("--rate", default="+0%", help="Speed adjustment, e.g. '+10%%' or '-10%%'.")
     args = parser.parse_args()
 
     try:
