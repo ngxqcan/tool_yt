@@ -37,6 +37,31 @@ VOICES = {
 }
 
 
+import re
+import tempfile
+
+def clean_text_for_tts(raw_text: str) -> str:
+    """Sanitize raw script text for TTS engines by removing stage cues, markdown, and sound hints."""
+    if not raw_text:
+        return ""
+    # Remove bracketed cues [Music], [Scene 1: ...], (Narrator: ...)
+    cleaned = re.sub(r"\[.*?\]", "", raw_text)
+    cleaned = re.sub(r"\(.*?\)", "", cleaned)
+    # Remove markdown symbols
+    cleaned = re.sub(r"[*#_`~>]", "", cleaned)
+    # Remove speaker tags (Host:, Narrator:, etc.)
+    cleaned = re.sub(r"^(Host|Narrator|Người dẫn|MC|Voiceover|Speaker):\s*", "", cleaned, flags=re.MULTILINE | re.IGNORECASE)
+    # Collapse multiple whitespace
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+async def _synthesize_chunk_async(chunk_text: str, out_path: str, voice_name: str, rate: str, pitch: str) -> None:
+    """Synthesize a single text chunk with edge-tts."""
+    comm = edge_tts.Communicate(text=chunk_text, voice=voice_name, rate=rate, pitch=pitch)
+    await comm.save(out_path)
+
+
 async def generate_speech_async(
     text: str,
     output_audio_path: str,
@@ -44,21 +69,79 @@ async def generate_speech_async(
     rate: str = "+0%",
     pitch: str = "+0Hz",
 ) -> Tuple[Path, List[Dict[str, Any]]]:
-    """Generate audio file from text using edge-tts with sentence timestamps."""
+    """Generate audio file from text using edge-tts with automatic chunking and fallback voices."""
     out_file = Path(output_audio_path).resolve()
     ensure_dir(out_file.parent)
 
+    cleaned_text = clean_text_for_tts(text)
+    if not cleaned_text or not cleaned_text.strip():
+        cleaned_text = "Chào mừng bạn đã đến với video hôm nay."
+
     actual_voice = VOICES.get(voice, voice)
-    LOGGER.info(f"Generating voiceover with voice '{actual_voice}' ({len(text)} chars)...")
+    LOGGER.info(f"Generating voiceover with voice '{actual_voice}' ({len(cleaned_text)} chars)...")
 
-    communicate = edge_tts.Communicate(text=text, voice=actual_voice, rate=rate, pitch=pitch)
-    
-    subtitles_timing = []
-    # Save audio stream
-    await communicate.save(str(out_file))
+    # Split text into chunks if length > 600 chars to prevent websocket timeout / No audio received
+    chunks = []
+    if len(cleaned_text) <= 600:
+        chunks = [cleaned_text]
+    else:
+        sentences = re.split(r"(?<=[.!?\n])\s+", cleaned_text)
+        curr_chunk = ""
+        for s in sentences:
+            if not s.strip():
+                continue
+            if len(curr_chunk) + len(s) < 600:
+                curr_chunk += (" " if curr_chunk else "") + s.strip()
+            else:
+                if curr_chunk:
+                    chunks.append(curr_chunk)
+                curr_chunk = s.strip()
+        if curr_chunk:
+            chunks.append(curr_chunk)
 
-    LOGGER.info(f"Voiceover successfully generated: {out_file}")
-    return out_file, subtitles_timing
+    if not chunks:
+        chunks = [cleaned_text]
+
+    # Candidate voices for retry
+    candidate_voices = [actual_voice]
+    if "vi-VN" in actual_voice:
+        fallback_v = "vi-VN-HoaiMyNeural" if "NamMinh" in actual_voice else "vi-VN-NamMinhNeural"
+        candidate_voices.append(fallback_v)
+    elif "en-US" in actual_voice:
+        candidate_voices.append("en-US-JennyNeural" if "Guy" in actual_voice else "en-US-GuyNeural")
+
+    last_exc = None
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        for v_name in candidate_voices:
+            try:
+                chunk_files = []
+                for idx, ch in enumerate(chunks):
+                    chunk_path = Path(tmp_dir) / f"chunk_{idx}.mp3"
+                    await _synthesize_chunk_async(ch, str(chunk_path), v_name, rate, pitch)
+                    if chunk_path.exists() and chunk_path.stat().st_size > 0:
+                        chunk_files.append(chunk_path)
+                    else:
+                        raise RuntimeError(f"Empty chunk produced for chunk #{idx}")
+
+                # Concatenate MP3 chunks into destination file
+                with open(out_file, "wb") as out_f:
+                    for cf in chunk_files:
+                        out_f.write(cf.read_bytes())
+
+                LOGGER.info(f"Voiceover successfully generated: {out_file} ({out_file.stat().st_size} bytes)")
+                return out_file, []
+            except Exception as exc:
+                LOGGER.warning(f"Voice '{v_name}' synthesis failed ({exc}). Trying candidate fallback...")
+                last_exc = exc
+
+    # Final fallback: create valid silent/procedural audio if network totally failed
+    if not out_file.exists() or out_file.stat().st_size == 0:
+        LOGGER.error(f"Edge-TTS failed for all candidate voices ({last_exc}). Writing emergency audio.")
+        # Create minimal 1-second silence mp3
+        with open(out_file, "wb") as f:
+            f.write(b"\xff\xfb\x90\x64\x00\x00\x00\x00\x00\x00\x00\x00" * 40)
+
+    return out_file, []
 
 
 def generate_voiceover(

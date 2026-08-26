@@ -141,10 +141,27 @@ with tab0:
         is_vert = auto_format == t("auto_format_vert")
 
     if st.button(t("btn_start_autopilot"), type="primary", use_container_width=True):
-        status_box = st.status(t("btn_start_autopilot"), expanded=True)
+        import time
+        start_time = time.time()
+        progress_bar = st.progress(0, text="0%")
+        status_box = st.empty()
+
+        def update_progress(pct: int, step_desc: str, est_total: float = 65.0):
+            elapsed = time.time() - start_time
+            if pct > 0:
+                est_finish = max(elapsed / (pct / 100.0), est_total)
+                rem_sec = max(0.0, est_finish - elapsed)
+            else:
+                rem_sec = est_total
+            elapsed_m, elapsed_s = int(elapsed // 60), int(elapsed % 60)
+            rem_m, rem_s = int(rem_sec // 60), int(rem_sec % 60)
+            t_text = f"📊 Tiến độ: {pct}% | ⏱️ Đã chạy: {elapsed_m:02d}:{elapsed_s:02d}s | ⏳ Ước tính còn lại: ~{rem_m:02d}:{rem_s:02d}s"
+            progress_bar.progress(pct, text=t_text)
+            status_box.info(f"👉 **{step_desc}**\n\n⏱️ Thời gian đã chạy: **{elapsed_m:02d}:{elapsed_s:02d}s** | ⏳ Ước tính còn: **~{rem_m:02d}:{rem_s:02d}s**")
+
         try:
-            # 1. Competitor DNA
-            status_box.update(label=t("step1_status"), state="running")
+            # 1. Competitor DNA (10%)
+            update_progress(10, t("step1_status"), est_total=65.0)
             tmpl_path = analyze_competitor_video(auto_url, force_refresh=False)
             with open(tmpl_path, "r", encoding="utf-8") as f:
                 tmpl_data = json.load(f)
@@ -159,8 +176,8 @@ with tab0:
                 if lang_code == "vi" and (actual_topic == "The Untold Science and History" or "ancient" in auto_url.lower()):
                     actual_topic = "Bí Quyết Sinh Tồn Và Phát Triển Của Con Người Thời Cổ Đại"
 
-            # 2. Script & Shorts
-            status_box.update(label=t("step2_status"), state="running")
+            # 2. Script & Shorts (35%)
+            update_progress(35, t("step2_status"), est_total=65.0)
             script = generate_script(
                 topic=actual_topic,
                 style_template_source=tmpl_path,
@@ -174,22 +191,23 @@ with tab0:
             save_shorts_outputs(shorts_res)
             st.session_state["current_shorts"] = shorts_res.model_dump()
 
-            # 3. Voiceover
-            status_box.update(label=t("step3_status"), state="running")
-            full_voiceover_text = script.hook.spoken_dialogue + " " + " ".join([s.spoken_dialogue for s in script.sections]) + " " + script.call_to_action_and_outro.spoken_dialogue
+            # 3. Voiceover (55%)
+            update_progress(55, t("step3_status"), est_total=65.0)
+            dialogue_parts = [script.hook.spoken_dialogue] + [s.spoken_dialogue for s in script.sections] + [script.call_to_action_and_outro.spoken_dialogue]
+            full_voiceover_text = " ".join([p.strip() for p in dialogue_parts if p and p.strip()])
             audio_file = generate_voiceover(text=full_voiceover_text, voice=auto_voice, rate="+0%")
             st.session_state["last_audio_file"] = str(audio_file)
 
-            # 4. Thumbnail Prompts & Mockup
-            status_box.update(label=t("step4_status"), state="running")
+            # 4. Thumbnail Prompts & Mockup (75%)
+            update_progress(75, t("step4_status"), est_total=65.0)
             t_model = design_thumbnail_prompts(actual_topic, target_emotion="High Shock & Curiosity")
             st.session_state["current_thumbnail_model"] = t_model.model_dump()
             first_text = t_model.prompts[0].recommended_text_overlay if t_model.prompts else actual_topic[:20]
             mock_png = render_thumbnail_mockup(text_overlay=first_text, subtitle=actual_topic)
             st.session_state["current_mockup_path"] = str(mock_png)
 
-            # 5. Video Assembly
-            status_box.update(label=t("step5_status"), state="running")
+            # 5. Video Assembly (90%)
+            update_progress(90, t("step5_status"), est_total=65.0)
             from video_assembler import assemble_video_from_script
             rendered_mp4 = assemble_video_from_script(
                 script_data=st.session_state["current_script"],
@@ -201,11 +219,14 @@ with tab0:
             st.session_state["last_video_file"] = str(rendered_mp4)
             st.session_state["autopilot_complete"] = True
 
-            status_box.update(label=t("autopilot_success_header"), state="complete", expanded=False)
+            # 100% Done
+            total_elapsed = time.time() - start_time
+            progress_bar.progress(100, text=f"🎉 Hoàn tất 100%! Tổng thời gian: {int(total_elapsed)}s")
+            status_box.success(f"🎉 **{t('autopilot_success_header')}** (Hoàn thành trong {int(total_elapsed)}s)")
             st.balloons()
 
         except Exception as e:
-            status_box.update(label=f"❌ Error: {e}", state="error")
+            status_box.error(f"❌ Autopilot Error: {e}")
             st.error(f"Autopilot failed: {e}")
 
     # Persistent presentation of completed All-In-One results
