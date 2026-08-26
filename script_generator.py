@@ -14,41 +14,47 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
-import logging
 import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from dotenv import load_dotenv
 
+from models import (
+    GeneratedScriptModel,
+    HookModel,
+    OutroModel,
+    SectionBeatModel,
+    StyleTemplateModel,
+    parse_and_validate_json,
+)
+from utils import (
+    ensure_dir,
+    generate_subtitles,
+    get_project_root,
+    retry_with_backoff,
+    setup_logging,
+)
+
 load_dotenv()
 
-LOGGER = logging.getLogger("script_generator")
-LOGGER.setLevel(logging.INFO)
-if not LOGGER.handlers:
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
-    LOGGER.addHandler(ch)
+LOGGER = setup_logging("script_generator")
 
 
-def get_project_root() -> Path:
-    """Return the absolute path to the project root."""
-    return Path(__file__).resolve().parent
-
-
-def ensure_dir(path: Path) -> Path:
-    """Ensure directory exists and return it."""
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def load_style_template(template_path_or_dict: Any) -> Optional[Dict[str, Any]]:
+def load_style_template(template_path_or_dict: Any) -> Optional[StyleTemplateModel]:
     """Load and validate style template from file path or dictionary."""
     if not template_path_or_dict:
         return None
 
-    if isinstance(template_path_or_dict, dict):
+    if isinstance(template_path_or_dict, StyleTemplateModel):
         return template_path_or_dict
+
+    if isinstance(template_path_or_dict, dict):
+        try:
+            return StyleTemplateModel.model_validate(template_path_or_dict)
+        except Exception as exc:
+            LOGGER.warning(f"Failed to validate style template dict ({exc})")
+            return None
 
     template_file = Path(template_path_or_dict)
     if not template_file.exists():
@@ -57,11 +63,27 @@ def load_style_template(template_path_or_dict: Any) -> Optional[Dict[str, Any]]:
 
     try:
         with open(template_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data
+            raw_text = f.read()
+        return parse_and_validate_json(raw_text, StyleTemplateModel)
     except Exception as exc:
-        LOGGER.warning(f"Could not load style template JSON ({exc})")
+        LOGGER.warning(f"Could not load/validate style template JSON ({exc})")
         return None
+
+
+@retry_with_backoff(max_retries=3, initial_delay=2.0)
+def _call_gemini_for_script(client: Any, model_name: str, prompt: str, system_instruction: str) -> str:
+    """Execute Gemini script generation with retry backoff."""
+    from google.genai import types
+    response = client.models.generate_content(
+        model=model_name,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            response_mime_type="application/json",
+            temperature=0.3,
+        ),
+    )
+    return response.text or ""
 
 
 def generate_script(
@@ -69,14 +91,15 @@ def generate_script(
     target_audience: Optional[str] = None,
     style_template_source: Optional[Any] = None,
     gemini_api_key: Optional[str] = None,
-    gemini_model: str = "gemini-2.5-flash",
-) -> Dict[str, Any]:
+    gemini_model: Optional[str] = None,
+) -> GeneratedScriptModel:
     """Generate an original video script for a topic using Gemini.
 
     Injects the style template and strict anti-plagiarism guardrail when provided.
     """
     style_template = load_style_template(style_template_source)
     api_key = gemini_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    model_name = gemini_model or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
     audience_str = target_audience or "General interested audience looking for actionable, clear insights"
 
@@ -88,12 +111,12 @@ def generate_script(
     )
 
     if style_template:
-        title_hints = style_template.get("title_thumbnail_pattern", {})
+        title_hints = style_template.title_thumbnail_pattern
         title_hint_text = (
-            f"- Title Formula: {style_template.get('title_formula', 'Engaging headline')}\n"
-            f"- Title Casing Style: {title_hints.get('capitalization_style', 'Title Case')}\n"
-            f"- Target Title Length: ~{title_hints.get('title_length_chars', 50)} chars\n"
-            f"- Include Numbers/Brackets: Numbers={title_hints.get('has_numbers', False)}, Brackets={title_hints.get('has_brackets', False)}"
+            f"- Title Formula: {style_template.title_formula}\n"
+            f"- Title Casing Style: {title_hints.capitalization_style}\n"
+            f"- Target Title Length: ~{title_hints.title_length_chars} chars\n"
+            f"- Include Numbers/Brackets: Numbers={title_hints.has_numbers}, Brackets={title_hints.has_brackets}"
         )
 
         template_guidelines = f"""
@@ -107,14 +130,14 @@ original and independently researched/written.
 ================================================================================
 
 STRUCTURAL BLUEPRINT TO MATCH:
-- Tone: {style_template.get('tone', 'Educational and engaging')}
-- Hook Style: {style_template.get('hook_style', 'High-impact opening challenge')}
-- Number of Main Beats/Sections: {style_template.get('section_count', 4)}
+- Tone: {style_template.tone}
+- Hook Style: {style_template.hook_style}
+- Number of Main Beats/Sections: {style_template.section_count}
 - Pacing & Beat Descriptions:
-{json.dumps(style_template.get('section_pacing', []), indent=2)}
-- Average Section Length: ~{style_template.get('avg_section_length_seconds', 90)} seconds
-- Ending Style / CTA: {style_template.get('ending_style', 'Actionable takeaway & subscribe CTA')}
-- Estimated Video Duration: ~{style_template.get('estimated_total_length_seconds', 480)} seconds
+{json.dumps(style_template.section_pacing, indent=2)}
+- Average Section Length: ~{style_template.avg_section_length_seconds} seconds
+- Ending Style / CTA: {style_template.ending_style}
+- Estimated Video Duration: ~{style_template.estimated_total_length_seconds} seconds
 
 TITLE & PACKAGING PATTERN HINTS:
 {title_hint_text}
@@ -133,87 +156,73 @@ TARGET AUDIENCE: {audience_str}
 
 {template_guidelines}
 
-Return a valid JSON object matching this structure:
+Return a valid JSON object matching this schema:
 {{
   "topic": "{topic}",
   "suggested_titles": [
-    "Title Option 1 (following the title formula)",
+    "Title Option 1",
     "Title Option 2",
     "Title Option 3"
   ],
-  "estimated_duration_seconds": <integer>,
-  "target_tone": "string describing tone",
+  "estimated_duration_seconds": <int>,
+  "target_tone": "string",
   "hook": {{
-    "duration_seconds": <integer, e.g. 20>,
-    "spoken_dialogue": "Exact voiceover / spoken text for the opening hook...",
+    "duration_seconds": <int>,
+    "spoken_dialogue": "Exact voiceover / spoken text for opening hook...",
     "visual_b_roll_instructions": "On-screen visuals, sound effects, text pop-ups..."
   }},
   "sections": [
     {{
       "section_number": 1,
       "title": "Section Title / Beat Name",
-      "duration_seconds": <integer>,
-      "spoken_dialogue": "Detailed voiceover script for this section...",
-      "visual_b_roll_instructions": "Visual directions, motion graphics, screen recordings..."
+      "duration_seconds": <int>,
+      "spoken_dialogue": "Detailed voiceover script...",
+      "visual_b_roll_instructions": "Visual directions, motion graphics..."
     }}
   ],
   "call_to_action_and_outro": {{
-    "duration_seconds": <integer>,
+    "duration_seconds": <int>,
     "spoken_dialogue": "Closing words and CTA...",
-    "visual_b_roll_instructions": "End screen layout, cards, B-roll..."
+    "visual_b_roll_instructions": "End screen layout..."
   }},
-  "seo_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
+  "seo_tags": ["tag1", "tag2", "tag3"],
   "description_blueprint": "2-3 paragraph YouTube video description ready for upload."
 }}
 """
 
-    script_result: Dict[str, Any] = {}
+    script_model: Optional[GeneratedScriptModel] = None
 
     if api_key:
         try:
             from google import genai
-            from google.genai import types
-
             client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
-                model=gemini_model,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    response_mime_type="application/json",
-                    temperature=0.3,
-                ),
-            )
-            raw_text = response.text.strip()
-            script_result = json.loads(raw_text)
-            LOGGER.info(f"Generated original script for topic '{topic}' via Gemini API.")
+            raw_text = _call_gemini_for_script(client, model_name, prompt, system_instruction)
+            script_model = parse_and_validate_json(raw_text, GeneratedScriptModel)
+            LOGGER.info(f"Generated original script for topic '{topic}' via Gemini API ({model_name}).")
         except Exception as exc:
-            LOGGER.warning(f"Gemini API call failed ({exc}). Falling back to algorithmic script generator.")
-            script_result = _fallback_script_generation(topic, audience_str, style_template)
-    else:
-        LOGGER.info("No GEMINI_API_KEY provided. Generating script using fallback template engine.")
-        script_result = _fallback_script_generation(topic, audience_str, style_template)
+            LOGGER.warning(f"Gemini API / parsing failed ({exc}). Falling back to fallback script engine.")
 
-    # Attach generation metadata
-    script_result["generated_at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
-    script_result["style_template_applied"] = bool(style_template)
-    if style_template:
-        script_result["template_source_video_id"] = style_template.get("source_video_id", "external")
+    if script_model is None:
+        LOGGER.info(f"Using fallback script engine for topic: '{topic}'")
+        script_model = _fallback_script_generation(topic, audience_str, style_template)
 
-    return script_result
+    script_model.generated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    script_model.style_template_applied = bool(style_template)
+    if style_template and style_template.source_video_id:
+        script_model.template_source_video_id = style_template.source_video_id
+
+    return script_model
 
 
 def _fallback_script_generation(
     topic: str,
     audience: str,
-    style_template: Optional[Dict[str, Any]],
-) -> Dict[str, Any]:
+    style_template: Optional[StyleTemplateModel],
+) -> GeneratedScriptModel:
     """Generates structured fallback script when API key is unavailable."""
-    section_count = style_template.get("section_count", 4) if style_template else 4
-    avg_sec = style_template.get("avg_section_length_seconds", 90) if style_template else 90
-    tone = style_template.get("tone", "Authoritative, educational, and engaging") if style_template else "Educational and engaging"
-    formula = style_template.get("title_formula", "[Topic]: The Complete Masterclass") if style_template else "How To Master [Topic]"
-    hook_style = style_template.get("hook_style", "High-energy dilemma hook") if style_template else "High-energy hook"
+    section_count = style_template.section_count if style_template else 4
+    avg_sec = style_template.avg_section_length_seconds if style_template else 90
+    tone = style_template.tone if style_template else "Educational and engaging"
 
     titles = [
         f"{topic}: The Definitive Breakdown for 2026",
@@ -221,7 +230,6 @@ def _fallback_script_generation(
         f"5 Proven Rules to Master {topic} (Step-by-Step)",
     ]
 
-    sections = []
     beat_names = [
         "The Core Problem & Context",
         "The Breakthrough Mechanism",
@@ -230,60 +238,70 @@ def _fallback_script_generation(
         "Future Outlook & Advanced Tips",
     ]
 
+    sections: List[SectionBeatModel] = []
     for i in range(min(section_count, len(beat_names))):
-        sections.append({
-            "section_number": i + 1,
-            "title": f"Beat {i+1}: {beat_names[i]}",
-            "duration_seconds": avg_sec,
-            "spoken_dialogue": (
+        sections.append(SectionBeatModel(
+            section_number=i + 1,
+            title=f"Beat {i+1}: {beat_names[i]}",
+            duration_seconds=avg_sec,
+            spoken_dialogue=(
                 f"In this section we dive deep into {beat_names[i].lower()} regarding {topic}. "
                 f"Understanding this foundational aspect gives {audience.lower()} the exact edge needed to execute effectively."
             ),
-            "visual_b_roll_instructions": (
+            visual_b_roll_instructions=(
                 f"Cut to clean animated diagram highlighting {topic} key points. "
                 "Add subtle kinetic typography for emphasis."
             ),
-        })
+        ))
 
-    return {
-        "topic": topic,
-        "suggested_titles": titles,
-        "estimated_duration_seconds": (section_count * avg_sec) + 45,
-        "target_tone": tone,
-        "hook": {
-            "duration_seconds": 25,
-            "spoken_dialogue": (
+    return GeneratedScriptModel(
+        topic=topic,
+        suggested_titles=titles,
+        estimated_duration_seconds=(section_count * avg_sec) + 45,
+        target_tone=tone,
+        hook=HookModel(
+            duration_seconds=25,
+            spoken_dialogue=(
                 f"If you've been trying to navigate {topic}, you've likely hit the same roadblock almost everyone faces. "
                 f"In this video, we break down the exact formula to solve it — no fluff, just actionable steps."
             ),
-            "visual_b_roll_instructions": (
+            visual_b_roll_instructions=(
                 f"Cold open: Fast kinetic text montage outlining {topic} challenges. "
                 "Glitch sound effect transitions into host on-camera."
             ),
-        },
-        "sections": sections,
-        "call_to_action_and_outro": {
-            "duration_seconds": 20,
-            "spoken_dialogue": (
+        ),
+        sections=sections,
+        call_to_action_and_outro=OutroModel(
+            duration_seconds=20,
+            spoken_dialogue=(
                 f"Which part of {topic} are you going to implement first? Let me know in the comments below, "
                 "and hit subscribe for the next breakdown."
             ),
-            "visual_b_roll_instructions": "Host wrap-up with animated subscribe button and related video end-screen cards.",
-        },
-        "seo_tags": [topic.lower(), f"{topic.lower()} tutorial", f"{topic.lower()} 2026", "strategy", "guide"],
-        "description_blueprint": (
+            visual_b_roll_instructions="Host wrap-up with animated subscribe button and related video end-screen cards.",
+        ),
+        seo_tags=[topic.lower(), f"{topic.lower()} tutorial", f"{topic.lower()} 2026", "strategy", "guide"],
+        description_blueprint=(
             f"Everything you need to know about {topic}. "
             f"We explore the proven strategies, common pitfalls, and exact steps to master this in 2026.\n\n"
             "Timestamps:\n0:00 - Introduction & Hook\n"
-            + "\n".join([f"{(i*avg_sec + 25)//60:02d}:{(i*avg_sec + 25)%60:02d} - {s['title']}" for i, s in enumerate(sections)])
+            + "\n".join([f"{(i*avg_sec + 25)//60:02d}:{(i*avg_sec + 25)%60:02d} - {s.title}" for i, s in enumerate(sections)])
             + "\n\nSubscribe for more high-impact breakdowns!"
         ),
-    }
+    )
 
 
-def save_script_outputs(script_data: Dict[str, Any], output_path: Optional[str] = None) -> Path:
-    """Save generated script as both JSON and readable Markdown."""
-    topic_slug = "".join(c if c.isalnum() else "_" for c in script_data.get("topic", "untitled")).strip("_")[:50]
+def save_script_outputs(
+    script_data: GeneratedScriptModel | Dict[str, Any],
+    output_path: Optional[str] = None,
+    export_subtitles: bool = True,
+) -> Path:
+    """Save generated script as JSON, Markdown, and optional SRT/VTT subtitle files."""
+    if isinstance(script_data, dict):
+        model = GeneratedScriptModel.model_validate(script_data)
+    else:
+        model = script_data
+
+    topic_slug = "".join(c if c.isalnum() else "_" for c in model.topic).strip("_")[:50]
     output_dir = ensure_dir(get_project_root() / "output")
 
     if output_path:
@@ -294,57 +312,75 @@ def save_script_outputs(script_data: Dict[str, Any], output_path: Optional[str] 
 
     # Write JSON
     with open(target_file, "w", encoding="utf-8") as f:
-        json.dump(script_data, f, indent=2, ensure_ascii=False)
+        f.write(model.model_dump_json(indent=2))
 
-    # Write companion Markdown
+    # Write Markdown
     md_file = target_file.with_suffix(".md")
     with open(md_file, "w", encoding="utf-8") as f:
-        f.write(format_script_as_markdown(script_data))
+        f.write(format_script_as_markdown(model))
+
+    # Write SRT & VTT Subtitles
+    if export_subtitles:
+        srt_content, vtt_content = generate_subtitles(model.model_dump())
+        srt_file = target_file.with_suffix(".srt")
+        vtt_file = target_file.with_suffix(".vtt")
+
+        with open(srt_file, "w", encoding="utf-8") as f:
+            f.write(srt_content)
+        with open(vtt_file, "w", encoding="utf-8") as f:
+            f.write(vtt_content)
+
+        LOGGER.info(f"Exported Subtitles: {srt_file} and {vtt_file}")
 
     LOGGER.info(f"Saved script JSON: {target_file}")
     LOGGER.info(f"Saved script Markdown: {md_file}")
     return target_file
 
 
-def format_script_as_markdown(script: Dict[str, Any]) -> str:
-    """Render script dictionary into a readable Markdown document."""
+def format_script_as_markdown(script: GeneratedScriptModel | Dict[str, Any]) -> str:
+    """Render script into a readable Markdown document."""
+    if isinstance(script, dict):
+        model = GeneratedScriptModel.model_validate(script)
+    else:
+        model = script
+
     lines = [
-        f"# Video Script: {script.get('topic')}",
-        f"\n**Generated At:** {script.get('generated_at', 'N/A')}",
-        f"**Estimated Total Duration:** ~{script.get('estimated_duration_seconds', 0)} seconds",
-        f"**Tone:** {script.get('target_tone', 'N/A')}",
-        f"**Style Template Applied:** {script.get('style_template_applied', False)}",
+        f"# Video Script: {model.topic}",
+        f"\n**Generated At:** {model.generated_at or 'N/A'}",
+        f"**Estimated Total Duration:** ~{model.estimated_duration_seconds} seconds",
+        f"**Tone:** {model.target_tone}",
+        f"**Style Template Applied:** {model.style_template_applied}",
         "\n## 🎯 Suggested Titles",
     ]
 
-    for title in script.get("suggested_titles", []):
+    for title in model.suggested_titles:
         lines.append(f"- {title}")
 
-    hook = script.get("hook", {})
+    hook = model.hook
     lines.extend([
-        f"\n## 🎣 Hook ({hook.get('duration_seconds', 0)}s)",
-        f"**Spoken Dialogue:**\n> {hook.get('spoken_dialogue', '')}\n",
-        f"**Visual & B-Roll:**\n*{hook.get('visual_b_roll_instructions', '')}*",
+        f"\n## 🎣 Hook ({hook.duration_seconds}s)",
+        f"**Spoken Dialogue:**\n> {hook.spoken_dialogue}\n",
+        f"**Visual & B-Roll:**\n*{hook.visual_b_roll_instructions}*",
         "\n## 🎬 Main Sections",
     ])
 
-    for sec in script.get("sections", []):
+    for sec in model.sections:
         lines.extend([
-            f"\n### {sec.get('title', f'Section {sec.get('section_number')}')} (~{sec.get('duration_seconds', 0)}s)",
-            f"**Spoken Dialogue:**\n> {sec.get('spoken_dialogue', '')}\n",
-            f"**Visual & B-Roll:**\n*{sec.get('visual_b_roll_instructions', '')}*",
+            f"\n### {sec.title} (~{sec.duration_seconds}s)",
+            f"**Spoken Dialogue:**\n> {sec.spoken_dialogue}\n",
+            f"**Visual & B-Roll:**\n*{sec.visual_b_roll_instructions}*",
         ])
 
-    outro = script.get("call_to_action_and_outro", {})
+    outro = model.call_to_action_and_outro
     lines.extend([
-        f"\n## 📣 Call to Action & Outro ({outro.get('duration_seconds', 0)}s)",
-        f"**Spoken Dialogue:**\n> {outro.get('spoken_dialogue', '')}\n",
-        f"**Visual & B-Roll:**\n*{outro.get('visual_b_roll_instructions', '')}*",
+        f"\n## 📣 Call to Action & Outro ({outro.duration_seconds}s)",
+        f"**Spoken Dialogue:**\n> {outro.spoken_dialogue}\n",
+        f"**Visual & B-Roll:**\n*{outro.visual_b_roll_instructions}*",
         "\n## 🏷️ SEO & Description Blueprint",
-        f"**Tags:** {', '.join(script.get('seo_tags', []))}\n",
+        f"**Tags:** {', '.join(model.seo_tags)}\n",
         "**Description:**",
         "```",
-        script.get("description_blueprint", ""),
+        model.description_blueprint,
         "```",
     ])
 
@@ -361,7 +397,9 @@ def main() -> None:
         default=None,
         help="Path to style_template.json produced by competitor_analyzer.",
     )
+    parser.add_argument("--model", "-m", default=None, help="Gemini model (default: GEMINI_MODEL or gemini-2.5-flash).")
     parser.add_argument("--output", "-o", default=None, help="Custom output JSON path.")
+    parser.add_argument("--no-subtitles", action="store_true", help="Disable automatic SRT/VTT subtitle export.")
     args = parser.parse_args()
 
     try:
@@ -369,8 +407,9 @@ def main() -> None:
             topic=args.topic,
             target_audience=args.audience,
             style_template_source=args.style_template,
+            gemini_model=args.model,
         )
-        out_path = save_script_outputs(script, args.output)
+        out_path = save_script_outputs(script, args.output, export_subtitles=not args.no_subtitles)
         print(f"Script successfully generated at: {out_path}")
     except Exception as exc:
         LOGGER.error(f"Script generation failed: {exc}")
