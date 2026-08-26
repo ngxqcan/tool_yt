@@ -1,6 +1,6 @@
 """Interactive Bilingual Streamlit Web Dashboard for YouTube AI Production Suite.
 
-Supports seamless language switching between Vietnamese (🇻🇳 Tiếng Việt) and English (🇬🇧 English).
+Supports seamless language switching (🇻🇳 Tiếng Việt & 🇬🇧 English) with 100% persistent state across tab navigation.
 
 Run with:
     streamlit run app.py
@@ -55,11 +55,6 @@ st.markdown("""
         border-radius: 10px;
         padding: 15px;
         border-left: 5px solid #38bdf8;
-    }
-    .lang-pill {
-        display: flex;
-        align-items: center;
-        gap: 8px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -141,11 +136,16 @@ with tab1:
                     tmpl_path = analyze_competitor_video(vid_url, force_refresh=force_ref)
                     with open(tmpl_path, "r", encoding="utf-8") as f:
                         tmpl_data = json.load(f)
-                    st.success(f"✅ DNA Extracted! Saved to: `{tmpl_path}`")
-                    st.json(tmpl_data)
+                    st.session_state["single_dna_result"] = tmpl_data
+                    st.session_state["single_dna_path"] = str(tmpl_path)
                     st.session_state["active_template_path"] = str(tmpl_path)
                 except Exception as e:
                     st.error(f"Analysis failed: {e}")
+
+        # Persistent render for single DNA
+        if "single_dna_result" in st.session_state:
+            st.success(f"✅ DNA Extracted! Saved to: `{st.session_state.get('single_dna_path')}`")
+            st.json(st.session_state["single_dna_result"])
 
     elif mode == t("mode_multi"):
         urls_input = st.text_area(
@@ -159,11 +159,16 @@ with tab1:
                     comp_path = analyze_multiple_competitors(urls)
                     with open(comp_path, "r", encoding="utf-8") as f:
                         c_data = json.load(f)
-                    st.success("✅ Synthesized Multi-Video Style Template Generated!")
-                    st.json(c_data)
+                    st.session_state["multi_dna_result"] = c_data
+                    st.session_state["multi_dna_path"] = str(comp_path)
                     st.session_state["active_template_path"] = str(comp_path)
                 except Exception as e:
                     st.error(f"Synthesis failed: {e}")
+
+        # Persistent render for multi DNA
+        if "multi_dna_result" in st.session_state:
+            st.success(f"✅ Synthesized Multi-Video Style Template Generated! Saved to: `{st.session_state.get('multi_dna_path')}`")
+            st.json(st.session_state["multi_dna_result"])
 
     elif mode == t("mode_channel"):
         channel_input = st.text_input(t("channel_input_label"), "@mkbhd")
@@ -172,16 +177,21 @@ with tab1:
             with st.spinner("Scanning channel uploads and calculating view multipliers..."):
                 try:
                     ch_res = crawl_channel_outliers(channel_input, min_outlier_multiplier=min_score)
-                    st.markdown(f"### Channel: **{ch_res.channel_title}**")
-                    st.markdown(f"- Analyzed Videos: **{ch_res.total_videos_analyzed}**")
-                    st.markdown(f"- Average Views: **{ch_res.average_view_count:,.0f}** | Median: **{ch_res.median_view_count:,.0f}**")
-                    st.markdown(f"- Top Keywords: `{'`, `'.join(ch_res.dominant_title_keywords)}`")
-
-                    st.markdown("#### 🔥 Viral Outlier Videos:")
-                    for out in ch_res.outlier_videos:
-                        st.markdown(f"- **[{out.outlier_score}x Outlier]** [{out.title}]({out.url}) — *{out.view_count:,} views*")
+                    st.session_state["channel_outliers_result"] = ch_res.model_dump()
                 except Exception as e:
                     st.error(f"Channel crawl failed: {e}")
+
+        # Persistent render for channel outliers
+        if "channel_outliers_result" in st.session_state:
+            ch_data = st.session_state["channel_outliers_result"]
+            st.markdown(f"### Channel: **{ch_data.get('channel_title')}**")
+            st.markdown(f"- Analyzed Videos: **{ch_data.get('total_videos_analyzed')}**")
+            st.markdown(f"- Average Views: **{ch_data.get('average_view_count', 0):,.0f}** | Median: **{ch_data.get('median_view_count', 0):,.0f}**")
+            st.markdown(f"- Top Keywords: `{'`, `'.join(ch_data.get('dominant_title_keywords', []))}`")
+
+            st.markdown("#### 🔥 Viral Outlier Videos:")
+            for out in ch_data.get("outlier_videos", []):
+                st.markdown(f"- **[{out.get('outlier_score')}x Outlier]** [{out.get('title')}]({out.get('url')}) — *{out.get('view_count', 0):,} views*")
 
     elif mode == t("mode_comments"):
         comm_url = st.text_input(t("comm_url_label"), "https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -189,16 +199,21 @@ with tab1:
             with st.spinner("Fetching comments & extracting content gaps..."):
                 try:
                     gap_res = mine_video_comments(comm_url)
-                    st.success(f"Analyzed {gap_res.total_comments_analyzed} comments! Sentiment: **{gap_res.audience_sentiment}**")
-                    st.markdown(f"### {t('unanswered_gaps_header')}")
-                    for gap in gap_res.content_gaps:
-                        st.warning(f"**Q/Critique:** {gap.question_or_critique}\n\n👉 **Our Script Angle:** {gap.suggested_script_angle}")
-                    st.markdown(f"### {t('talking_points_header')}")
-                    for pt in gap_res.recommended_talking_points:
-                        st.info(f"• {pt}")
+                    st.session_state["comment_gaps_result"] = gap_res.model_dump()
                     st.session_state["active_gaps_path"] = str(get_project_root() / "cache" / "competitor" / gap_res.video_id / "comment_gaps.json")
                 except Exception as e:
                     st.error(f"Comment mining failed: {e}")
+
+        # Persistent render for comment gaps
+        if "comment_gaps_result" in st.session_state:
+            gap_data = st.session_state["comment_gaps_result"]
+            st.success(f"Analyzed {gap_data.get('total_comments_analyzed')} comments! Sentiment: **{gap_data.get('audience_sentiment')}**")
+            st.markdown(f"### {t('unanswered_gaps_header')}")
+            for gap in gap_data.get("content_gaps", []):
+                st.warning(f"**Q/Critique:** {gap.get('question_or_critique')}\n\n👉 **Our Script Angle:** {gap.get('suggested_script_angle')}")
+            st.markdown(f"### {t('talking_points_header')}")
+            for pt in gap_data.get("recommended_talking_points", []):
+                st.info(f"• {pt}")
 
 # -----------------------------------------------------------------------------
 # TAB 2: Script & Shorts Studio
@@ -235,34 +250,41 @@ with tab2:
                 st.session_state["current_script"] = script.model_dump()
                 st.session_state["active_script_file"] = str(saved_json)
 
-                st.success(t("script_created_success"))
-                st.markdown(f"### 🎯 Suggested Titles:\n" + "\n".join([f"- **{t_title}**" for t_title in script.suggested_titles]))
-
-                with st.expander(t("hook_header"), expanded=True):
-                    st.markdown(f"**Dialogue:** {script.hook.spoken_dialogue}")
-                    st.info(f"**Visual & B-Roll:** {script.hook.visual_b_roll_instructions}")
-
-                with st.expander(t("sections_header"), expanded=True):
-                    for idx, sec in enumerate(script.sections, 1):
-                        st.markdown(f"#### Beat {idx}: {sec.title} (~{sec.duration_seconds}s)")
-                        st.markdown(f"**Dialogue:** {sec.spoken_dialogue}")
-                        st.caption(f"**Visual:** {sec.visual_b_roll_instructions}")
-
-                with st.expander(t("outro_header")):
-                    st.markdown(f"**Outro:** {script.call_to_action_and_outro.spoken_dialogue}")
-
                 if gen_shorts:
                     with st.spinner("Deriving 3 viral Shorts scripts..."):
                         shorts_res = generate_shorts_from_topic_or_script(topic_input, script)
                         save_shorts_outputs(shorts_res)
-                        st.markdown(f"### {t('shorts_created_header')}")
-                        for s_idx, sh in enumerate(shorts_res.shorts, 1):
-                            with st.expander(f"📱 Short #{s_idx}: {sh.hook_title} ({sh.estimated_duration_seconds}s)"):
-                                st.markdown(f"**Spoken Dialogue:**\n> {sh.spoken_dialogue}")
-                                st.caption(f"**Visual Cues:** {sh.visual_cues}")
+                        st.session_state["current_shorts"] = shorts_res.model_dump()
 
             except Exception as e:
                 st.error(f"Script generation failed: {e}")
+
+    # Persistent render for Script & Shorts
+    if "current_script" in st.session_state:
+        s_data = st.session_state["current_script"]
+        st.success(t("script_created_success"))
+        st.markdown(f"### 🎯 Suggested Titles:\n" + "\n".join([f"- **{t_title}**" for t_title in s_data.get("suggested_titles", [])]))
+
+        with st.expander(t("hook_header"), expanded=True):
+            st.markdown(f"**Dialogue:** {s_data.get('hook', {}).get('spoken_dialogue')}")
+            st.info(f"**Visual & B-Roll:** {s_data.get('hook', {}).get('visual_b_roll_instructions')}")
+
+        with st.expander(t("sections_header"), expanded=True):
+            for idx, sec in enumerate(s_data.get("sections", []), 1):
+                st.markdown(f"#### Beat {idx}: {sec.get('title')} (~{sec.get('duration_seconds')}s)")
+                st.markdown(f"**Dialogue:** {sec.get('spoken_dialogue')}")
+                st.caption(f"**Visual:** {sec.get('visual_b_roll_instructions')}")
+
+        with st.expander(t("outro_header")):
+            st.markdown(f"**Outro:** {s_data.get('call_to_action_and_outro', {}).get('spoken_dialogue')}")
+
+        if "current_shorts" in st.session_state:
+            sh_data = st.session_state["current_shorts"]
+            st.markdown(f"### {t('shorts_created_header')}")
+            for s_idx, sh in enumerate(sh_data.get("shorts", []), 1):
+                with st.expander(f"📱 Short #{s_idx}: {sh.get('hook_title')} ({sh.get('estimated_duration_seconds')}s)"):
+                    st.markdown(f"**Spoken Dialogue:**\n> {sh.get('spoken_dialogue')}")
+                    st.caption(f"**Visual Cues:** {sh.get('visual_cues')}")
 
 # -----------------------------------------------------------------------------
 # TAB 3: Neural Voice Studio
@@ -290,13 +312,17 @@ with tab3:
         with st.spinner("Synthesizing neural voiceover with Edge-TTS..."):
             try:
                 audio_file = generate_voiceover(text=text_to_speak, voice=voice_choice, rate=rate_adj)
-                st.success(f"Audio generated: `{audio_file.name}`")
-                st.audio(str(audio_file), format="audio/mp3")
-                with open(audio_file, "rb") as f:
-                    st.download_button(t("btn_dl_audio"), f, file_name=audio_file.name, mime="audio/mp3")
                 st.session_state["last_audio_file"] = str(audio_file)
             except Exception as e:
                 st.error(f"TTS synthesis failed: {e}")
+
+    # Persistent render for Voiceover
+    if "last_audio_file" in st.session_state and Path(st.session_state["last_audio_file"]).exists():
+        a_file = Path(st.session_state["last_audio_file"])
+        st.success(f"Audio generated: `{a_file.name}`")
+        st.audio(str(a_file), format="audio/mp3")
+        with open(a_file, "rb") as f:
+            st.download_button(t("btn_dl_audio"), f, file_name=a_file.name, mime="audio/mp3")
 
 # -----------------------------------------------------------------------------
 # TAB 4: Thumbnail Studio
@@ -313,21 +339,27 @@ with tab4:
         with st.spinner("Designing thumbnail prompts..."):
             try:
                 t_model = design_thumbnail_prompts(thumb_topic, target_emotion=emotion)
-                st.success("✅ Thumbnail Prompts Created!")
-                st.markdown(f"**Visual Metaphor:** {t_model.core_visual_metaphor}")
-
-                for idx, p in enumerate(t_model.prompts, 1):
-                    with st.expander(f"Concept #{idx}: {p.variation_name} (Text Overlay: \"{p.recommended_text_overlay}\")"):
-                        st.markdown(f"**Midjourney v6 Prompt:**\n```\n{p.midjourney_prompt}\n```")
-                        st.markdown(f"**DALL-E 3 Prompt:**\n```\n{p.dalle_prompt}\n```")
-                        st.markdown(f"**Google Imagen Prompt:**\n```\n{p.imagen_prompt}\n```")
-
-                # Render mockup
+                st.session_state["current_thumbnail_model"] = t_model.model_dump()
                 first_text = t_model.prompts[0].recommended_text_overlay if t_model.prompts else "NEW BREAKTHROUGH"
                 mock_png = render_thumbnail_mockup(text_overlay=first_text, subtitle=thumb_topic)
-                st.image(str(mock_png), caption=t("mockup_caption"), use_container_width=True)
+                st.session_state["current_mockup_path"] = str(mock_png)
             except Exception as e:
                 st.error(f"Thumbnail design failed: {e}")
+
+    # Persistent render for Thumbnail Studio
+    if "current_thumbnail_model" in st.session_state:
+        t_data = st.session_state["current_thumbnail_model"]
+        st.success("✅ Thumbnail Prompts Created!")
+        st.markdown(f"**Visual Metaphor:** {t_data.get('core_visual_metaphor')}")
+
+        for idx, p in enumerate(t_data.get("prompts", []), 1):
+            with st.expander(f"Concept #{idx}: {p.get('variation_name')} (Text Overlay: \"{p.get('recommended_text_overlay')}\")"):
+                st.markdown(f"**Midjourney v6 Prompt:**\n```\n{p.get('midjourney_prompt')}\n```")
+                st.markdown(f"**DALL-E 3 Prompt:**\n```\n{p.get('dalle_prompt')}\n```")
+                st.markdown(f"**Google Imagen Prompt:**\n```\n{p.get('imagen_prompt')}\n```")
+
+        if "current_mockup_path" in st.session_state and Path(st.session_state["current_mockup_path"]).exists():
+            st.image(st.session_state["current_mockup_path"], caption=t("mockup_caption"), use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # TAB 5: Video Assembly & Upload
@@ -368,10 +400,6 @@ with tab5:
                             bgm_genre=bgm_genre,
                             is_vertical=is_vert,
                         )
-                        st.success(f"✅ 1080p Video Rendered: `{rendered_mp4.name}`")
-                        st.video(str(rendered_mp4))
-                        with open(rendered_mp4, "rb") as f:
-                            st.download_button(t("btn_dl_video"), f, file_name=rendered_mp4.name, mime="video/mp4")
                         st.session_state["last_video_file"] = str(rendered_mp4)
                     except Exception as e:
                         st.error(f"Video assembly failed: {e}")
@@ -390,13 +418,17 @@ with tab5:
                     try:
                         from video_assembler import assemble_quick_video
                         rendered_mp4 = assemble_quick_video(audio_path=audio_src, title=v_title, subtitle=v_sub)
-                        st.success(f"✅ Video Rendered: `{rendered_mp4.name}`")
-                        st.video(str(rendered_mp4))
-                        with open(rendered_mp4, "rb") as f:
-                            st.download_button(t("btn_dl_video"), f, file_name=rendered_mp4.name, mime="video/mp4")
                         st.session_state["last_video_file"] = str(rendered_mp4)
                     except Exception as e:
                         st.error(f"Quick video assembly failed: {e}")
+
+    # Persistent render for Assembled Video
+    if "last_video_file" in st.session_state and Path(st.session_state["last_video_file"]).exists():
+        v_file = Path(st.session_state["last_video_file"])
+        st.success(f"✅ Video Rendered: `{v_file.name}`")
+        st.video(str(v_file))
+        with open(v_file, "rb") as f:
+            st.download_button(t("btn_dl_video"), f, file_name=v_file.name, mime="video/mp4")
 
     st.markdown("---")
     st.markdown(f"### {t('yt_upload_header')}")
